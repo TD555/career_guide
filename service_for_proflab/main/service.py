@@ -199,7 +199,7 @@ async def get_professions():
     questions_one = data['userData']
     questions_two = data['questionAnswers']
     
-    questions_two = [item if (isinstance(type(item['answer']), int)) else {'question' : item['question'], 'answer' : ', '.join(item['answer'])} for item in questions_two]
+    questions_two = [item if (isinstance(type(item['answer']), str)) else {'question' : item['question'], 'answer' : ', '.join(item['answer'])} for item in questions_two]
 
     questions_one = await clean_questions(questions_one)
     
