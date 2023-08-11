@@ -6,9 +6,9 @@ services:
     volumes:
     - postgres_data:/var/lib/postgresql/data
     environment:
-    - POSTGRES_DATABASE=flask_db
-    - POSTGRES_USER=postgres
-    - POSTGRES_PASSWORD=Tik.555
+    - POSTGRES_DATABASE=proflab_db
+    - POSTGRES_USER=proflab_user
+    - POSTGRES_PASSWORD=puacX9KK[@mX
     ports:
       - 5432:5432
     restart: always
@@ -22,11 +22,12 @@ services:
       - 5000:5000
     environment:
       API_KEY: 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
-      DB_HOST: host.docker.internal
+      DB_HOST: localhost
       DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: Tik.555
-      DB_NAME: flask_db
+      DB_USER: proflab_user
+      DB_PASSWORD: puacX9KK[@mX
+      DB_NAME: proflab_db
+      
     restart: always
 
 volumes: 

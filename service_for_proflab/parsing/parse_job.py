@@ -120,7 +120,8 @@ async def parse():
                             job_email text,
                             notes text,
                             date_posted timestamp,
-                            deadline timestamp
+                            deadline timestamp,
+                            active bool
                         );
         """
         

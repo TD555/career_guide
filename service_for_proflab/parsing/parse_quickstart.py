@@ -110,7 +110,8 @@ async def parse():
                             price text,
                             trainer text,
                             status varchar(50),
-                            source varchar(100)
+                            source varchar(100),
+                            active bool
                         );
         """
         

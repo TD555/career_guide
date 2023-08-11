@@ -199,6 +199,7 @@ async def get_professions():
     questions_one = data['userData']
     questions_two = data['questionAnswers']
     
+    questions_two = [item if (isinstance(type(item['answer']), int)) else {'question' : item['question'], 'answer' : ', '.join(item['answer'])} for item in questions_two]
 
     questions_one = await clean_questions(questions_one)
     
@@ -209,19 +210,12 @@ async def get_professions():
     answers.extend([item['answer'] for item in questions_two])
     
     
-    answers_data = [{"question" : questions[i], "answer" : answers[i]} if await asyncio.get_event_loop().run_in_executor(None, is_english, answers[i]) \
-                else {"question" : questions[i], "answer" : await asyncio.get_event_loop().run_in_executor(None, translate_to_english, answers[i])} for i in range(len(questions))]
+    answers_data = [questions[i].strip() + ' : ' + answers[i] if await asyncio.get_event_loop().run_in_executor(None, is_english, answers[i]) \
+                else questions[i].strip() + ' : ' +  await asyncio.get_event_loop().run_in_executor(None, translate_to_english, answers[i]) for i in range(len(questions))]
     
-    # print(answers_data)
     
-    with open("answers.json", 'w') as file:
-        json.dump(answers_data, file)
     
-    each_answers = []
-    for question in answers_data:
-        each_answers.append(question["question"] + ' : ' + question["answer"])
-    
-    answers_txt = ',\n'.join(each_answers[1:])
+    answers_txt = ',\n'.join(answers_data[1:])
     # print(answers_txt)
     main_prompt = f"""
                     You are career coach, I am providing you information about career questions and answers. 
