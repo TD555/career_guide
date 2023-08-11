@@ -26,9 +26,9 @@ nltk.download('averaged_perceptron_tagger')
 nltk.download('words')
 
 print("Course parsing...")
-parse_course.parse()
+asyncio.run(parse_course.parse())
 print("Job parsing...")
-parse_job.parse()
+asyncio.run(parse_job.parse())
 
 import spacy
 
