@@ -1,0 +1,33 @@
+version: '3'
+
+services:
+  postgres:
+    image: postgres
+    volumes:
+    - postgres_data:/var/lib/postgresql/data
+    environment:
+    - POSTGRES_DATABASE=flask_db
+    - POSTGRES_USER=postgres
+    - POSTGRES_PASSWORD=Tik.555
+    ports:
+      - 5432:5432
+    restart: always
+
+  flask_proflab_app:
+    build: ./service_for_proflab
+    depends_on:
+      - postgres
+    container_name: proflab
+    ports:
+      - 5000:5000
+    environment:
+      API_KEY: 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
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: Tik.555
+      DB_NAME: flask_db
+    restart: always
+
+volumes: 
+  postgres_data:
