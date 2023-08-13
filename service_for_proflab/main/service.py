@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request, abort, render_template
 from flask_caching import Cache
+from config.config import Config
 from tika import parser
 import openai
 from fuzzywuzzy import fuzz
@@ -11,6 +12,7 @@ import sys
 import os
 import re
 import asyncio
+import spacy
 import numpy as np
 import parsing.parse_quickstart as parse_course
 import parsing.parse_job as parse_job
@@ -25,20 +27,22 @@ stwords = stopwords.words('english')
 nltk.download('averaged_perceptron_tagger')
 nltk.download('words')
 
-print("Course parsing...")
-asyncio.run(parse_course.parse())
-print("Job parsing...")
-asyncio.run(parse_job.parse())
 
-import spacy
+print("Course and Job tables creating or/and updating...")
+
+asyncio.gather(parse_course.parse(), parse_job.parse())
 
 
 sys.path.insert(0, "service_for_proflab")
 from version import __version__, __description__
+from dotenv import load_dotenv
 
+load_dotenv()
 
 app = Flask(__name__)
 cache = Cache(app)
+
+app.config.from_object(Config)
 
 app.config["CACHE_TYPE"] = "simple"  
 # app.config["CACHE_DEFAULT_TIMEOUT"] = 300  
@@ -49,13 +53,14 @@ translator = Translator1()
 MODEL1 = "gpt-3.5-turbo"
 MODEL2 = "text-davinci-003"
 
-openai.api_key = os.environ['API_KEY']
 
-hostname = os.environ['DB_HOST']
-database = os.environ['DB_NAME']
-username = os.environ['DB_USER']
-pwd = os.environ['DB_PASSWORD']
-port_id = os.environ['DB_PORT']
+openai.api_key = Config.API_KEY
+
+hostname = Config.DATABASE_HOST
+database = Config.DATABASE_NAME
+username = Config.DATABASE_USER
+pwd = Config.DATABASE_PASSWORD
+port_id = Config.DATABASE_PORT
 
 
 

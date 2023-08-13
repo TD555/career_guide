@@ -12,6 +12,8 @@ from deep_translator import GoogleTranslator as Translator
 import calendar
 from datetime import datetime, date
 import re
+from config.config import Config
+
 
 nltk.download('averaged_perceptron_tagger')
 nltk.download('words')
@@ -20,12 +22,11 @@ translator = Translator1()
 month_names = list(calendar.month_name)[1:]
 #Connect to database
 
-hostname = os.environ['DB_HOST']
-database = os.environ['DB_NAME']
-username = os.environ['DB_USER']
-pwd = os.environ['DB_PASSWORD']
-port_id = os.environ['DB_PORT']
-
+hostname = Config.DATABASE_HOST
+database = Config.DATABASE_NAME
+username = Config.DATABASE_USER
+pwd = Config.DATABASE_PASSWORD
+port_id = Config.DATABASE_PORT
 
 
 translator = Translator1()

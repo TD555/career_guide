@@ -12,7 +12,7 @@ import psycopg2
 import asyncio
 import re
 import os
-
+from config.config import Config
 
 nltk.download('averaged_perceptron_tagger')
 nltk.download('words')
@@ -24,11 +24,11 @@ ENDPOINTS = ["jobs", "industry", "jobs/details/{Id}"]
 
 ALL_INDUSTRIES = requests.get(API + ENDPOINTS[1]).json()
 
-hostname = os.environ['DB_HOST']
-database = os.environ['DB_NAME']
-username = os.environ['DB_USER']
-pwd = os.environ['DB_PASSWORD']
-port_id = os.environ['DB_PORT']
+hostname = Config.DATABASE_HOST
+database = Config.DATABASE_NAME
+username = Config.DATABASE_USER
+pwd = Config.DATABASE_PASSWORD
+port_id = Config.DATABASE_PORT
 
 
 def find_indices(list_to_check, item_to_find):

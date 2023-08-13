@@ -1,5 +1,6 @@
 flask[async]==2.2.3
 Flask-Caching==2.0.2
+python-dotenv==1.0.0
 openai==0.27.2
 openpyxl==3.1.2
 tika==2.6.0
