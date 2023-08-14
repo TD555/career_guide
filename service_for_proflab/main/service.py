@@ -9,7 +9,6 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import json
 import sys
-import os
 import re
 import asyncio
 import spacy
@@ -28,16 +27,9 @@ nltk.download('averaged_perceptron_tagger')
 nltk.download('words')
 
 
-print("Course and Job tables creating or/and updating...")
-
-asyncio.gather(parse_course.parse(), parse_job.parse())
-
-
 sys.path.insert(0, "service_for_proflab")
 from version import __version__, __description__
-from dotenv import load_dotenv
 
-load_dotenv()
 
 app = Flask(__name__)
 cache = Cache(app)
@@ -68,6 +60,7 @@ port_id = Config.DATABASE_PORT
 def handle_error(error):
     # Get the traceback
     error_traceback = traceback.format_exc()
+    print(error_traceback)
     if hasattr(error, 'code'):
         status_code = error.code
     else:
@@ -84,7 +77,7 @@ def after_request(response):
 
 
 @app.route("/", methods=["GET"])
-def info():
+async def info():
     return __description__
 
 
@@ -312,8 +305,9 @@ async def get_home_page():
         
         course_response, job_response  = await asyncio.gather(get_courses(cur), get_jobs(cur))
         
-    except psycopg2.Error as e: abort(str(e), e.pgcode)
-      
+    except psycopg2.OperationalError as e:  abort(500, "Error connecting to the database: " + str(e))
+    except Exception as e: abort(500, str(e))
+    
     finally:     
         
         if cur:
@@ -326,22 +320,14 @@ async def get_home_page():
 
 
 
-@app.route("/update_courses", methods=["GET"])
-async def update_courses():
+@app.route("/update", methods=["GET"])
+async def update_courses_jobs():
     
     try:
-        await parse_job.parse()
-        return {"status" : 200 , "message" : "Table 'course' is updated"}
-    except Exception as e: abort(str(e), 500)
-    
-
-@app.route("/update_jobs", methods=["GET"])
-async def update_jobs():
-    
-    try:
-        await parse_course.parse()
-        return {"status" : 200 , "message" : "Table 'job' is updated"}
-    except Exception as e: abort(str(e), 500)
+        print("Course and Job tables creating or/and updating...")
+        await asyncio.gather(parse_course.parse(), parse_job.parse())
+    except psycopg2.OperationalError as e: abort(500, "Error connecting to the database: " + str(e))
+    except Exception as e: abort(500, str(e))
  
 
 @app.route("/get_recommendation", methods=["POST"])
@@ -526,8 +512,9 @@ async def get_recommendation():
 
         # print(courses_jobs)
        
-    except psycopg2.Error as e: abort(str(e), e.pgcode)
-
+    except psycopg2.OperationalError as e:  abort(500, "Error connecting to the database: " + str(e))
+    except Exception as e: abort(500, str(e))
+    
     finally:     
         
         if cur:
