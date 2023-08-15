@@ -65,7 +65,7 @@ def handle_error(error):
         status_code = error.code
     else:
         status_code = 500
-    return {"message" : error.description, "status_code" : status_code}, status_code
+    return {"message" : str(error), "status_code" : status_code}, status_code
     
     
 @app.after_request
@@ -127,7 +127,7 @@ async def get_professions():
     
     try:
         data = request.json['data']
-        print(data)
+        # print(data)
     except: abort(500, "Invalid data of answers")
 
     # data = request.files['data']
@@ -197,7 +197,7 @@ async def get_professions():
     questions_one = data['userData']
     questions_two = data['questionAnswers']
     
-    questions_two = [item if (isinstance(type(item['answer']), str)) else {'question' : item['question'], 'answer' : ', '.join(item['answer'])} for item in questions_two]
+    questions_two = [item if (isinstance(type(item['answers']), str)) else {'question' : item['question'], 'answers' : ', '.join(item['answers'])} for item in questions_two]
 
     questions_one = await clean_questions(questions_one)
     
@@ -205,7 +205,7 @@ async def get_professions():
     answers = list(questions_one.values())
     
     questions.extend([item['question'] for item in questions_two])
-    answers.extend([item['answer'] for item in questions_two])
+    answers.extend([item['answers'] for item in questions_two])
     
     
     answers_data = [questions[i].strip() + ' : ' + answers[i] if await asyncio.get_event_loop().run_in_executor(None, is_english, answers[i]) \
@@ -357,7 +357,7 @@ async def get_recommendation():
     
     
     main_prompt = f"Give required qualifications for this career path - {profession}. Rate the importance of each on a scale of 1-10 (Return in json form)"
-    print(main_prompt)
+    # print(main_prompt)
     completion = openai.Completion.create(
                         engine=MODEL2,
                         prompt=main_prompt,
@@ -388,9 +388,10 @@ async def get_recommendation():
     pers_answers_txt = ',\n'.join(answers_data[1:8])
     prof_answers_txt = ',\n'.join(answers_data[8:])
     
-
+    questions_two = [item if (isinstance(type(item['answers']), str)) else {'question' : item['question'], 'answers' : ', '.join(item['answers'])} for item in questions_two]
+    
     questions = [item['question'] for item in questions_two]
-    answers = [item['answer'] for item in questions_two]
+    answers = [item['answers'] for item in questions_two]
     
     answers_data = [questions[i].strip() + ' : ' + answers[i] if await asyncio.get_event_loop().run_in_executor(None, is_english, answers[i]) \
                 else questions[i].strip() + ' : ' +  await asyncio.get_event_loop().run_in_executor(None, translate_to_english, answers[i]) for i in range(len(questions))]
@@ -448,14 +449,14 @@ async def get_recommendation():
     
     matches = re.findall(score_patern, text, re.MULTILINE)
 
-    scores_dict = {match[0]: int(match[1].strip()) for match in matches}
+    scores_dict = {match[0]: int(match[1].strip()) for match in matches if match[0] in skills.keys()}
     
     total = sum(skills.values())
     
     score = 0
     
     for skill in skills:
-        score += (100/total) * (scores_dict[skill]/10) * skills[skill]
+        score += (100/total) * (scores_dict.get(skill, 0)/10) * skills[skill]
     
     suggestion_pattern = r':\s*([^:]+)'
     
@@ -463,18 +464,7 @@ async def get_recommendation():
     
     suggestion = match.strip()
     
-    
-    evaluation_pattern = r'^.*?:\s*[0-9]*'
-    
-    evaluation = re.findall(evaluation_pattern, text, re.MULTILINE)[:-1]
 
-    data = {}
-    for line in evaluation:
-        key, value = line.split(':')
-        data[key] = int(value.strip())
-    
-    with open(r"C:\Users\user\Desktop\evaluation.json", "w") as file:    
-        json.dump(data, file)
         
     evaluation_pattern = r'^.*?:.*'
     
@@ -484,15 +474,19 @@ async def get_recommendation():
     skill_data = []
     weights = {}
     
+    print(evaluation)
+    
     for line in evaluation:
         key, value = line.split(':')
-        groups = re.match(r'([0-9]+)/*[0-9]* -(.*)', value.strip())
-        score_data.append({'title' : key, 'value' :  int(groups.group(1).strip()), 'evaluation' : groups.group(2).strip()})
-    
-        weights[key] = int(groups.group(1).strip())
+        if key in skills.keys():
+            groups = re.match(r'([0-9]+)/*[0-9]*\s*-(.*)', value.strip())
+            if groups:
+                score_data.append({'title' : key, 'value' :  int(groups.group(1).strip()), 'evaluation' : groups.group(2).strip()})
+                    
+                weights[key] = int(groups.group(1).strip())
 
     for skill, value in skills.items():
-        skill_data.append({'title' : skill, 'value' : value})
+        skill_data.append({'title' : skill.strip(), 'value' : value})
     
     # return ({"evaluation" : score_data, "total_score" : round(score,1), "suggestion" : suggestion, "skills" : skill_data})
     
@@ -512,6 +506,7 @@ async def get_recommendation():
         
         courses_jobs = await asyncio.gather(get_rec_courses(cur, profession, skills, weights), get_rec_jobs(cur, profession, skills, weights))
 
+        courses_jobs[0].update(courses_jobs[1])
         # print(courses_jobs)
        
     except psycopg2.OperationalError as e:  abort(500, "Error connecting to the database: " + str(e))
@@ -525,7 +520,7 @@ async def get_recommendation():
         if conn:
             conn.close()
     
-    return ({"evaluation" : score_data, "total_score" : round(score,1), "suggestion" : suggestion, "skills" : skill_data, "recommendation" : courses_jobs, "status" : 200})
+    return {"evaluation" : score_data, "total_score" : round(score,1), "suggestion" : suggestion, "skills" : skill_data, "recommendation" : courses_jobs[0], "status" : 200}
      
      
 async def get_rec_courses(cur, profession, skills, weights):
@@ -563,6 +558,7 @@ async def get_rec_courses(cur, profession, skills, weights):
     # courses.append({"title" : "Tableau for beginners", "sphere" : "IT", "description" : ""})
 
     profession_title = nlp(profession)
+    print("skills - ", skills, " weights - ", weights)
     for course in courses:
         course_title = nlp(course['sphere'] + " : " + course['title'].replace('AI', 'Artificial Intelligence'))
         # description = nlp(course['description'].replace('AI', 'Artificial Intelligence'))
@@ -575,12 +571,12 @@ async def get_rec_courses(cur, profession, skills, weights):
                 
         similarity = []
         title_similarity = course_title.similarity(profession_title)
+        
         for i, cleaned_skill in enumerate(all_cleaned_skills):
             # skill_name = nlp(list(all_skills.keys())[i])
 
-            
             similarity.append(fuzz.partial_token_set_ratio(cleaned_course, cleaned_skill.replace("communication", "communication English, Russian").replace(\
-                            "Communication", "Communication English, Russian"))/100 * (10 - skills[list(all_skills.keys())[i]]) * title_similarity**0.5 * weights[list(all_skills.keys())[i]])
+                            "Communication", "Communication English, Russian"))/100 * (10 - skills[list(all_skills.keys())[i]]) * title_similarity**0.5 * weights.get(list(all_skills.keys())[i], 0))
             
             # print(similarity[-1], cleaned_course, cleaned_skill.replace("communication", "communication : English, Russian").replace("Communication", "Communication : English Russian"))
 
@@ -654,7 +650,7 @@ async def get_rec_jobs(cur, profession, skills, weights):
         for token in tokens:
             if token not in stwords:
                 cleaned_job += token + ' '
-        
+
         fuzz_ratios = np.vectorize(fuzz.partial_token_set_ratio)([skill.replace("communication", "communication English, Russian").replace(\
                             "Communication", "Communication English, Russian") for skill in all_skills.keys()], cleaned_job)
         job_similarity = job_title.similarity(profession_title)
@@ -665,7 +661,7 @@ async def get_rec_jobs(cur, profession, skills, weights):
 
             # if requirements:
             similarity.append(fuzz_ratios[i]/100 * (skills[list(all_skills.keys())[i]]) * job_similarity**0.5 *\
-                        weights[list(all_skills.keys())[i]])
+                        weights.get(list(all_skills.keys())[i], 0))
             # else: similarity.append(fuzz_ratios[i]/100 * (skills[list(all_skills.keys())[i]]) * job_similarity**0.5 *\
             #                 weights[list(all_skills.keys())[i]])
             
