@@ -328,6 +328,8 @@ async def update_courses_jobs():
         await asyncio.gather(parse_course.parse(), parse_job.parse())
     except psycopg2.OperationalError as e: abort(500, "Error connecting to the database: " + str(e))
     except Exception as e: abort(500, str(e))
+    
+    return {"status" : 200, "message" : "'Course' and 'Job' tables are updated"}
  
 
 @app.route("/get_recommendation", methods=["POST"])
