@@ -449,14 +449,15 @@ async def get_recommendation():
     
     matches = re.findall(score_patern, text, re.MULTILINE)
 
-    scores_dict = {match[0]: int(match[1].strip()) for match in matches if match[0] in skills.keys()}
+    scores_dict =  {match[0]: int(match[1].strip()) if match[0] in skills.keys() else 5 for match in matches}
+
     
     total = sum(skills.values())
     
     score = 0
     
     for skill in skills:
-        score += (100/total) * (scores_dict.get(skill, 0)/10) * skills[skill]
+        score += (100/total) * (scores_dict.get(skill, 5)/10) * skills[skill]
     
     suggestion_pattern = r':\s*([^:]+)'
     
@@ -521,8 +522,61 @@ async def get_recommendation():
             conn.close()
     
     return {"evaluation" : score_data, "total_score" : round(score,1), "suggestion" : suggestion, "skills" : skill_data, "recommendation" : courses_jobs[0], "status" : 200}
-     
-     
+
+
+@app.route("/get_courses_jobs", methods=["POST"])
+async def get_courses_jobs():   
+    try:
+        profession = request.json["profession"]
+    except: abort(500, "Invalid data of profession")
+    
+    try:
+        skills_data = request.json['skills']
+        
+        skills = {item['title'] : item['value'] for item in skills_data}
+        
+    except: abort(500, "Invalid data of skills")
+    
+    try:
+        evaluation = request.json['evaluation']
+        
+        weights = {item['title'] : item['value'] for item in evaluation}
+                  
+    except: abort(500, "Invalid data of evaluation")
+    
+    
+    conn, cur = None, None
+    
+    try:
+        conn = psycopg2.connect(
+            
+            host = hostname,
+            dbname = database,
+            user = username,
+            password = pwd,
+            port = port_id
+        )
+        
+        cur = conn.cursor(cursor_factory = RealDictCursor)
+        
+        courses_jobs = await asyncio.gather(get_rec_courses(cur, profession, skills, weights), get_rec_jobs(cur, profession, skills, weights))
+
+        courses_jobs[0].update(courses_jobs[1])
+       
+    except psycopg2.OperationalError as e:  abort(500, "Error connecting to the database: " + str(e))
+    except Exception as e: abort(500, str(e))
+    
+    finally:     
+        
+        if cur:
+            cur.close()
+            
+        if conn:
+            conn.close()
+    
+    return {"recommendation" : courses_jobs[0],"evaluation" : evaluation,  "skills" : skills_data, "status" : 200}
+    
+    
 async def get_rec_courses(cur, profession, skills, weights):
     
     get_script = """
@@ -576,7 +630,7 @@ async def get_rec_courses(cur, profession, skills, weights):
             # skill_name = nlp(list(all_skills.keys())[i])
 
             similarity.append(fuzz.partial_token_set_ratio(cleaned_course, cleaned_skill.replace("communication", "communication English, Russian").replace(\
-                            "Communication", "Communication English, Russian"))/100 * (10 - skills[list(all_skills.keys())[i]]) * title_similarity**0.5 * weights.get(list(all_skills.keys())[i], 0))
+                            "Communication", "Communication English, Russian"))/100 * (10 - skills[list(all_skills.keys())[i]]) * title_similarity**0.5 * weights.get(list(all_skills.keys())[i], 5))
             
             # print(similarity[-1], cleaned_course, cleaned_skill.replace("communication", "communication : English, Russian").replace("Communication", "Communication : English Russian"))
 
@@ -661,7 +715,7 @@ async def get_rec_jobs(cur, profession, skills, weights):
 
             # if requirements:
             similarity.append(fuzz_ratios[i]/100 * (skills[list(all_skills.keys())[i]]) * job_similarity**0.5 *\
-                        weights.get(list(all_skills.keys())[i], 0))
+                        weights.get(list(all_skills.keys())[i], 5))
             # else: similarity.append(fuzz_ratios[i]/100 * (skills[list(all_skills.keys())[i]]) * job_similarity**0.5 *\
             #                 weights[list(all_skills.keys())[i]])
             
