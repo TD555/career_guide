@@ -16,3 +16,6 @@ class Config:
     
     # APP port
     APP_PORT = os.environ.get('APP_PORT')
+    
+    # Token validation
+    API_DOCS = os.environ.get('API_DOCS')

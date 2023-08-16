@@ -7,7 +7,7 @@ from fuzzywuzzy import fuzz
 import traceback
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import json
+import requests
 import sys
 import re
 import asyncio
@@ -45,6 +45,7 @@ translator = Translator1()
 MODEL1 = "gpt-3.5-turbo"
 MODEL2 = "text-davinci-003"
 
+API_DOCS = Config.API_DOCS
 
 openai.api_key = Config.API_KEY
 
@@ -119,6 +120,15 @@ async def clean_questions(questions:dict):
     
     return data    
 
+
+async def check_token_valid(token):
+    response = requests.post(API_DOCS + '/api/auth/service-token/check', json={'token' : token})
+    if response.status_code != 200:
+        abort(response.status_code, response.content.decode('utf-8'))
+    return response.json()['valid']
+    
+    
+
 @app.route("/get_professions", methods=["POST"])
 async def get_professions():
     #   ---Get file and parse content---
@@ -126,9 +136,24 @@ async def get_professions():
     # content = request.get_json()
     
     try:
+        authorization_header = request.headers.get('Authorization')
+        print(authorization_header)
+    except: abort(500, "Invalid authorization header")
+        
+    if authorization_header:
+        _, token = authorization_header.split()
+        
+        if not await check_token_valid(token):
+            abort(403, "Invalid authorization token")
+    
+    else: abort(401, "Authorization header not found")
+    
+    
+    try:
         data = request.json['data']
         # print(data)
     except: abort(500, "Invalid data of answers")
+    
 
     # data = request.files['data']
     
@@ -287,7 +312,8 @@ async def get_jobs(cur):
     
 @app.route("/get_home_page", methods=["GET"])
 async def get_home_page():
-    
+
+
     conn, cur = None, None
         
         
@@ -324,6 +350,20 @@ async def get_home_page():
 async def update_courses_jobs():
     
     try:
+        authorization_header = request.headers.get('Authorization')
+        print(authorization_header)
+    except: abort(500, "Invalid authorization header")
+        
+    if authorization_header:
+        _, token = authorization_header.split()
+        
+        if not await check_token_valid(token):
+            abort(403, "Invalid authorization token")
+    
+    else: abort(401, "Authorization header not found")
+    
+    
+    try:
         print("Course and Job tables creating or/and updating...")
         await asyncio.gather(parse_course.parse(), parse_job.parse())
     except psycopg2.OperationalError as e: abort(500, "Error connecting to the database: " + str(e))
@@ -335,6 +375,19 @@ async def update_courses_jobs():
 @app.route("/get_recommendation", methods=["POST"])
 async def get_recommendation():
      
+    try:
+        authorization_header = request.headers.get('Authorization')
+    except: abort(500, "Invalid authorization header")
+        
+    if authorization_header:
+        _, token = authorization_header.split()
+        
+        if not await check_token_valid(token):
+            abort(403, "Invalid authorization token")
+    
+    else: abort(401, "Authorization header not found")
+
+
     try:
         profession = request.json["profession"]
     except: abort(500, "Invalid data of profession")
@@ -526,6 +579,19 @@ async def get_recommendation():
 
 @app.route("/get_courses_jobs", methods=["POST"])
 async def get_courses_jobs():   
+    
+    try:
+        authorization_header = request.headers.get('Authorization')
+    except: abort(500, "Invalid authorization header")
+        
+    if authorization_header:
+        _, token = authorization_header.split()
+        
+        if not await check_token_valid(token):
+            abort(403, "Invalid authorization token")
+    
+    else: abort(401, "Authorization header not found")
+    
     try:
         profession = request.json["profession"]
     except: abort(500, "Invalid data of profession")
