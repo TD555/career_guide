@@ -350,20 +350,6 @@ async def get_home_page():
 async def update_courses_jobs():
     
     try:
-        authorization_header = request.headers.get('Authorization')
-        print(authorization_header)
-    except: abort(500, "Invalid authorization header")
-        
-    if authorization_header:
-        _, token = authorization_header.split()
-        
-        if not await check_token_valid(token):
-            abort(403, "Invalid authorization token")
-    
-    else: abort(401, "Authorization header not found")
-    
-    
-    try:
         print("Course and Job tables creating or/and updating...")
         await asyncio.gather(parse_course.parse(), parse_job.parse())
     except psycopg2.OperationalError as e: abort(500, "Error connecting to the database: " + str(e))
