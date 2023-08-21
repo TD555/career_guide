@@ -109,14 +109,26 @@ def translate_to_english(text):
             except: return text
 
 
+async def replace_none_with_empty(data):
+    for item in data:
+        for key in item:
+            if item[key] is None:
+                item[key] = ""
+    return data
+
+
 async def clean_questions(questions:dict):
     
     data = questions.copy()
     data['skills'] = ', '.join(questions['skills'])
-    data['languages'] = ', '.join([item['language'] + ' - ' + item['proficiency'] for item in questions['languages']])
-    data['licenses'] = ', '.join([item['title'] for item in questions['licenses']])
-    data['educations'] = ', '.join([item['field'] + ' - ' + item['degree'] for item in questions['educations']])
-    data['experiences'] = ', '.join([item['description'] + 'Position - ' + item['position'] for item in questions['experiences']])
+    updated_dict = await replace_none_with_empty(questions['languages'])
+    data['languages'] = ', '.join([item['language'] + ' - ' + item['proficiency'] for item in updated_dict])
+    updated_dict = await replace_none_with_empty(questions['licenses'])
+    data['licenses'] = ', '.join([item['title'] for item in updated_dict])
+    updated_dict = await replace_none_with_empty(questions['educations'])
+    data['educations'] = ', '.join([item['field'] + ' - ' + item['degree'] for item in updated_dict])
+    updated_dict = await replace_none_with_empty(questions['experiences'])
+    data['experiences'] = ', '.join([item['description'] + 'Position - ' + item['position'] for item in updated_dict])
     
     return data    
 
