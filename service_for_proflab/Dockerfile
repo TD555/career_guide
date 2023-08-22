@@ -1,5 +1,15 @@
 FROM python:3.10.0
 
+# Set environment variables for database connection
+ENV DB_USER=proflab_user
+ENV DB_PASSWORD=puacX9KK[@mX
+ENV DB_HOST=localhost
+ENV DB_NAME=proflab_db
+ENV DB_PORT=5432
+
+# Install PostgreSQL client library
+RUN apt-get update && apt-get install -y libpq-dev
+
 RUN adduser --disabled-login service-proflab
 USER service-proflab
 
