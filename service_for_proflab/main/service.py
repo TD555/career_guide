@@ -12,6 +12,9 @@ import sys
 import re
 import asyncio
 import spacy
+import atexit
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 import numpy as np
 import parsing.parse_quickstart as parse_course
 import parsing.parse_job as parse_job
@@ -56,6 +59,20 @@ pwd = Config.DATABASE_PASSWORD
 port_id = Config.DATABASE_PORT
 
 
+scheduler = AsyncIOScheduler()
+
+async def call_update_function():
+    with app.app_context():
+        await update_courses_jobs()
+        
+cron_trigger = CronTrigger(hour=12, minute=0)
+
+scheduler.add_job(call_update_function, cron_trigger)
+
+scheduler.start()
+
+
+atexit.register(lambda: scheduler.shutdown())
 
 @app.errorhandler(Exception)
 def handle_error(error):
