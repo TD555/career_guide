@@ -16,4 +16,4 @@ fuzzywuzzy==0.18.0
 python-Levenshtein==0.21.1
 nltk==3.8.1
 spacy==3.6.0
-apscheduler[asyncio]==3.10.4
+Flask-APScheduler==1.12.4

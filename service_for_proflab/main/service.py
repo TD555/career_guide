@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request, abort, render_template
-from flask_caching import Cache
+import sys
+sys.path.append('service_for_proflab')
 from config.config import Config
 from tika import parser
 import openai
@@ -12,9 +13,7 @@ import sys
 import re
 import asyncio
 import spacy
-import atexit
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
+from flask_apscheduler import APScheduler
 import numpy as np
 import parsing.parse_quickstart as parse_course
 import parsing.parse_job as parse_job
@@ -35,13 +34,6 @@ from version import __version__, __description__
 
 
 app = Flask(__name__)
-cache = Cache(app)
-
-app.config.from_object(Config)
-
-app.config["CACHE_TYPE"] = "simple"  
-# app.config["CACHE_DEFAULT_TIMEOUT"] = 300  
-
 
 translator = Translator1()
 
@@ -58,21 +50,16 @@ username = Config.DATABASE_USER
 pwd = Config.DATABASE_PASSWORD
 port_id = Config.DATABASE_PORT
 
+import logging
 
-scheduler = AsyncIOScheduler()
+logging.basicConfig(level=logging.INFO)  # You can adjust the logging level as needed
+logger = logging.getLogger(__name__)
 
-async def call_update_function():
-    with app.app_context():
-        await update_courses_jobs()
-        
-cron_trigger = CronTrigger(hour=12, minute=0)
+scheduler = APScheduler()
 
-scheduler.add_job(call_update_function, cron_trigger)
+def job():
+    asyncio.run(update_courses_jobs())
 
-scheduler.start()
-
-
-atexit.register(lambda: scheduler.shutdown())
 
 @app.errorhandler(Exception)
 def handle_error(error):
@@ -379,7 +366,7 @@ async def get_home_page():
 async def update_courses_jobs():
     
     try:
-        print("Course and Job tables creating or/and updating...")
+        logger.info("Course and Job tables creating or/and updating...")
         await asyncio.gather(parse_course.parse(), parse_job.parse())
     except psycopg2.OperationalError as e: abort(500, "Error connecting to the database: " + str(e))
     except Exception as e: abort(500, str(e))
@@ -825,4 +812,3 @@ async def get_rec_jobs(cur, profession, skills, weights):
     response = cur.fetchall()
 
     return {"jobs" : [{k:v  for k, v in dict(item).items()}  for item in response]}
-            

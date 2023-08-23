@@ -2,10 +2,10 @@ from waitress import serve
 import sys
 sys.path.insert(0, 'main')
 
-from service import app
+from main.service import app, scheduler, job
 from config.config import Config
-from waitress import serve
 
 if __name__ == "__main__":
-    # app.run(debug=True)
+    scheduler.add_job(id ='job',func=job, trigger='cron', hour=18, minute=33)
+    scheduler.start()
     serve(app, port=Config.APP_PORT)
