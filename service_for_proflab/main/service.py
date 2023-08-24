@@ -247,9 +247,9 @@ async def get_professions():
     
     questions.extend([item['question'] for item in questions_two])
     answers.extend([item['answers'] for item in questions_two])
+
     
-    
-    answers_data = [questions[i].strip() + ' : ' + answers[i].strip() for i in range(len(questions))]
+    answers_data = [questions[i].strip() + ' : ' + answers[i].strip() if answers[i] else questions[i].strip() + ' : ' for i in range(len(questions))]
     
     
     
@@ -406,7 +406,9 @@ async def get_recommendation():
     questions = list(questions_one.keys())
     answers = list(questions_one.values())
      
-    answers_data = [questions[i].strip() + ' : ' + answers[i] for i in range(len(questions))]
+    logger.info(questions_one)
+     
+    answers_data = [questions[i].strip() + ' : ' + answers[i].strip() if answers[i] else questions[i].strip() + ' : ' for i in range(len(questions))]
     
     
     main_prompt = f"Give required qualifications for this career path - {profession}. Rate the importance of each on a scale of 1-10 (Return in json form)"
@@ -446,7 +448,7 @@ async def get_recommendation():
     questions = [item['question'] for item in questions_two]
     answers = [item['answers'] for item in questions_two]
     
-    answers_data = [questions[i].strip() + ' : ' + answers[i] for i in range(len(questions))]
+    answers_data = [questions[i].strip() + ' : ' + answers[i] if answers[i] else questions[i].strip() + ' : ' for i in range(len(questions))]
     
     
         
