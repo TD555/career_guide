@@ -2,10 +2,16 @@ from waitress import serve
 import sys
 sys.path.insert(0, 'main')
 
-from service import app
+from main.service import app, scheduler, job
 from config.config import Config
-from waitress import serve
 
 if __name__ == "__main__":
-    # app.run(debug=True)
+    hour = int(Config.JOB_HOUR)
+    if hour >= 4 and hour<24:
+        hour -=4
+    elif hour >=0 and hour<4: hour+=20
+    else: hour = 0
+    
+    scheduler.add_job(id ='job',func=job, trigger='cron', hour=hour, minute=int(Config.JOB_MINUTE))
+    scheduler.start()
     serve(app, port=Config.APP_PORT)

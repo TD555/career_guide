@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request, abort, render_template
-from flask_caching import Cache
+import sys
+sys.path.append('service_for_proflab')
 from config.config import Config
 from tika import parser
 import openai
@@ -12,6 +13,7 @@ import sys
 import re
 import asyncio
 import spacy
+from flask_apscheduler import APScheduler
 import numpy as np
 import parsing.parse_quickstart as parse_course
 import parsing.parse_job as parse_job
@@ -32,13 +34,6 @@ from version import __version__, __description__
 
 
 app = Flask(__name__)
-cache = Cache(app)
-
-app.config.from_object(Config)
-
-app.config["CACHE_TYPE"] = "simple"  
-# app.config["CACHE_DEFAULT_TIMEOUT"] = 300  
-
 
 translator = Translator1()
 
@@ -55,6 +50,15 @@ username = Config.DATABASE_USER
 pwd = Config.DATABASE_PASSWORD
 port_id = Config.DATABASE_PORT
 
+import logging
+
+logging.basicConfig(level=logging.INFO)  # You can adjust the logging level as needed
+logger = logging.getLogger(__name__)
+
+scheduler = APScheduler()
+
+def job():
+    asyncio.run(update_courses_jobs())
 
 
 @app.errorhandler(Exception)
@@ -82,31 +86,31 @@ async def info():
     return __description__
 
 
-def is_english(text):
-    try:
-        words = nltk.word_tokenize(text)
-        english_words = set(nltk.corpus.words.words())
+# def is_english(text):
+#     try:
+#         words = nltk.word_tokenize(text)
+#         english_words = set(nltk.corpus.words.words())
         
-        # Check if all the words in the text are English words
-        return all(word.lower() in english_words or not word.isalpha() for word in words)
+#         # Check if all the words in the text are English words
+#         return all(word.lower() in english_words or not word.isalpha() for word in words)
     
-    except: return False
+#     except: return False
 
 
-def translate_to_english(text):
-    # print(type(text))
-    try:
-        to_translate = str(text)
-        return Translator(source='auto', target='en').translate(to_translate)
-    except:
-        try:
-            result = translator.translate(str(text), dest='en')
-            return result.text
-        except : 
-            try:
-                translator= Translator2(to_lang="en")
-                return translator.translate(str(text))
-            except: return text
+# def translate_to_english(text):
+#     # print(type(text))
+#     try:
+#         to_translate = str(text)
+#         return Translator(source='auto', target='en').translate(to_translate)
+#     except:
+#         try:
+#             result = translator.translate(str(text), dest='en')
+#             return result.text
+#         except : 
+#             try:
+#                 translator= Translator2(to_lang="en")
+#                 return translator.translate(str(text))
+#             except: return text
 
 
 async def replace_none_with_empty(data):
@@ -243,10 +247,9 @@ async def get_professions():
     
     questions.extend([item['question'] for item in questions_two])
     answers.extend([item['answers'] for item in questions_two])
+
     
-    
-    answers_data = [questions[i].strip() + ' : ' + answers[i] if await asyncio.get_event_loop().run_in_executor(None, is_english, answers[i]) \
-                else questions[i].strip() + ' : ' +  await asyncio.get_event_loop().run_in_executor(None, translate_to_english, answers[i]) for i in range(len(questions))]
+    answers_data = [questions[i].strip() + ' : ' + answers[i].strip() if answers[i] else questions[i].strip() + ' : ' for i in range(len(questions))]
     
     
     
@@ -259,7 +262,7 @@ async def get_professions():
                     
                     trending, modern, perspective, independent of each other and, most importantly, did not coincide with my professions.
                     
-                    The questions and answers: {answers_txt}.
+                    The questions and answers: {answers_txt} (Translate to english if needed).
                     
                     For each specialty, give me a short description and short rationale as to why it is appropriate. 
                     (Only use "you" application style when addressing me, do not apply by name.)
@@ -362,7 +365,7 @@ async def get_home_page():
 async def update_courses_jobs():
     
     try:
-        print("Course and Job tables creating or/and updating...")
+        logger.info("Course and Job tables creating or/and updating...")
         await asyncio.gather(parse_course.parse(), parse_job.parse())
     except psycopg2.OperationalError as e: abort(500, "Error connecting to the database: " + str(e))
     except Exception as e: abort(500, str(e))
@@ -403,8 +406,9 @@ async def get_recommendation():
     questions = list(questions_one.keys())
     answers = list(questions_one.values())
      
-    answers_data = [questions[i].strip() + ' : ' + answers[i] if await asyncio.get_event_loop().run_in_executor(None, is_english, answers[i]) \
-                else questions[i].strip() + ' : ' +  await asyncio.get_event_loop().run_in_executor(None, translate_to_english, answers[i]) for i in range(len(questions))]
+    logger.info(questions_one)
+     
+    answers_data = [questions[i].strip() + ' : ' + answers[i].strip() if answers[i] else questions[i].strip() + ' : ' for i in range(len(questions))]
     
     
     main_prompt = f"Give required qualifications for this career path - {profession}. Rate the importance of each on a scale of 1-10 (Return in json form)"
@@ -444,8 +448,7 @@ async def get_recommendation():
     questions = [item['question'] for item in questions_two]
     answers = [item['answers'] for item in questions_two]
     
-    answers_data = [questions[i].strip() + ' : ' + answers[i] if await asyncio.get_event_loop().run_in_executor(None, is_english, answers[i]) \
-                else questions[i].strip() + ' : ' +  await asyncio.get_event_loop().run_in_executor(None, translate_to_english, answers[i]) for i in range(len(questions))]
+    answers_data = [questions[i].strip() + ' : ' + answers[i] if answers[i] else questions[i].strip() + ' : ' for i in range(len(questions))]
     
     
         
@@ -459,7 +462,7 @@ async def get_recommendation():
     
     
     main_prompt = f"""
-                    You are candidate coach. I answered 3 types of questions. Here are the questions and my answers:
+                    You are candidate coach. I answered 3 types of questions. Here are the questions and my answers (Translate to english if needed):
                           1. personal questions - {pers_answers_txt},
                           2. professional questions - {prof_answers_txt},
                           3. psychological questions - {psych_answers_txt}.
@@ -808,4 +811,3 @@ async def get_rec_jobs(cur, profession, skills, weights):
     response = cur.fetchall()
 
     return {"jobs" : [{k:v  for k, v in dict(item).items()}  for item in response]}
-            

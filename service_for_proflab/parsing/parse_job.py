@@ -12,6 +12,8 @@ import psycopg2
 import asyncio
 import re
 import os
+import sys
+sys.path.append('config')
 from config.config import Config
 
 nltk.download('averaged_perceptron_tagger')
@@ -126,6 +128,7 @@ async def parse():
     """
     
     cur.execute(create_script)
+    conn.commit()
     
     get_urls = """
                     SELECT job_url
@@ -133,20 +136,28 @@ async def parse():
                     WHERE active = True"""
     
     cur.execute(get_urls) 
-    all_urls = [item[0] for item in cur.fetchall()]      
+    all_urls = list(set([item[0] for item in cur.fetchall()]))
     
-    conn.commit()
+    
     job_infos = defaultdict(list)
-        
-    real_urls = [hy_to_en(item['Url']) for item in requests.get(API + ENDPOINTS[0]).json()]
+    
+    get_jobs = requests.get(API + ENDPOINTS[0]).json()
+    real_urls = list(set([hy_to_en(item['Url']) for item in get_jobs]))
     
     non_repetitive_elements = [x for x in all_urls if x not in real_urls]
     
-    for job in requests.get(API + ENDPOINTS[0]).json():
-        
-        if hy_to_en(job["Url"]) in all_urls:
+    new_jobs = [job for job in get_jobs if hy_to_en(job['Url']) not in all_urls]
+    
+    for job in new_jobs:
+        job_info = requests.get(API + ENDPOINTS[2].format(Id=job['Id'])).json()
+        timestamp = re.search(r'[0-9]+', job_info["DateExpires"]).group(0)
+        deadline = datetime.fromtimestamp(int(timestamp)/1000)
+
+        if deadline <= datetime.now():
             continue
-        job_infos["job_url"].append(hy_to_en(job["Url"]))
+        
+        job_infos["deadline"].append(str(deadline))
+        job_infos["job_url"].append(hy_to_en(job['Url']))
         
         print(job_infos["job_url"][-1])
         response = requests.get(job_infos["job_url"][-1]).content
@@ -213,13 +224,7 @@ async def parse():
         spheres = ', '.join(industry_names)
         job_infos["sphere"].append(spheres)
         
-        
-        job_info = requests.get(API + ENDPOINTS[2].format(Id=job['Id'])).json()
         # print(job_info)
-        timestamp = re.search(r'[0-9]+', job_info["DateExpires"]).group(0)
-        deadline = datetime.fromtimestamp(int(timestamp)/1000)
-
-        job_infos["deadline"].append(str(deadline))
         
         
         timestamp = re.search(r'[0-9]+', job_info["DatePosted"]).group(0)
@@ -265,6 +270,7 @@ async def parse():
             
         keys = keys.replace("'", "")
         
+
         insert_script = f"""
                         INSERT INTO job {keys}
                         VALUES {values};
@@ -274,6 +280,7 @@ async def parse():
         insert_script = insert_script.replace("'NULL'", 'NULL').replace("'NULL'", 'NULL')
         
         cur.execute(insert_script)
+        conn.commit()
         
         keys = list(job_infos.keys())
         keys.remove('date_posted')
@@ -281,6 +288,7 @@ async def parse():
         keys.remove('active')
         
         for key in keys:
+            
             update_script = f"""
                             UPDATE job
                             SET {key} = 
@@ -295,7 +303,8 @@ async def parse():
                             """
                             
             cur.execute(update_script)
-        
+            conn.commit()
+            
         # cur.execute("SELECT id, title FROM job")
         # rows = cur.fetchall()
         # for row in rows:
@@ -305,25 +314,27 @@ async def parse():
         #     # Execute an UPDATE query to update the table
         #     cur.execute("UPDATE job SET title = %s WHERE id = %s", (new_value, record_id))
         
-        conn.commit()
     
     # print(non_repetitive_elements)
+    
     for url in non_repetitive_elements:
+            cur = conn.cursor()
+            
             change_script = f"""
                             UPDATE job
                             SET active = false
                             WHERE job_url = '{url}' ;"""
     
             cur.execute(change_script)
+            conn.commit()
             
     change_script = f"""
                             UPDATE job
                             SET active = false
-                            WHERE deadline <= '{datetime.now()}' ;"""
+                            WHERE deadline < '{datetime.now()}' ;"""
     
     cur.execute(change_script)
-    
-    conn.commit()     
+    conn.commit()
       
         
     if cur:

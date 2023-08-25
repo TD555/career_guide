@@ -117,15 +117,16 @@ async def parse():
     """
     
     cur.execute(create_script)   
+    conn.commit()
     
     get_urls = """
                     SELECT course_url
                     FROM course"""
     
     cur.execute(get_urls) 
+    
     all_urls = [item[0] for item in cur.fetchall()]      
                         
-    conn.commit()
         
         
     with urlopen('https://quickstart.am/en/open-trainings/#') as response:
@@ -373,6 +374,7 @@ async def parse():
         insert_script = insert_script.replace("'NULL'", 'NULL')
         
         cur.execute(insert_script)
+        conn.commit()
         
         keys = list(course_infos.keys())
         keys.remove('end_date')
@@ -391,12 +393,10 @@ async def parse():
                                 ELSE {key}
                             END
                             WHERE {key} LIKE '- %' OR {key} LIKE ': %' OR {key} LIKE '– %' OR {key} LIKE '%’%';
-                            """
-                            
+                            """           
             cur.execute(update_script)
-
-        conn.commit()
-    
+            conn.commit()
+            
     # print(non_repetitive_elements)
     
     for url in non_repetitive_elements:
@@ -404,8 +404,9 @@ async def parse():
                             UPDATE course
                             SET active = false
                             WHERE course_url = '{url}';"""
-    
+
             cur.execute(change_script)
+            conn.commit()
                     
     change_script = f"""
                             UPDATE course
@@ -414,7 +415,6 @@ async def parse():
     
     cur.execute(change_script)
     conn.commit()     
-
     
     if cur:
         cur.close()
