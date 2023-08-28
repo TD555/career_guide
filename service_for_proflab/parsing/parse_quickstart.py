@@ -310,7 +310,8 @@ async def parse():
 
         
         async def process_course_info_async(key, values):
-            tasks = [translate_to_english_async(value) if value else empty_coroutine(value) for value in values]
+            tasks = [translate_to_english_async(value) if value and key not in ("course_url", "img_url", "start_date", "end_date", "source", "active")
+                                                       else empty_coroutine(value) for value in values]
             # print(tasks)
             translated_values = await asyncio.gather(*tasks)
             return key, translated_values

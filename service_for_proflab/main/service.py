@@ -361,12 +361,13 @@ async def get_home_page():
 
 
 
-@app.route("/update", methods=["GET"])
+# @app.route("/update", methods=["GET"])
 async def update_courses_jobs():
     
     try:
         logger.info("Course and Job tables creating or/and updating...")
-        await asyncio.gather(parse_course.parse(), parse_job.parse())
+        await parse_course.parse()
+        await parse_job.parse()
     except psycopg2.OperationalError as e: abort(500, "Error connecting to the database: " + str(e))
     except Exception as e: abort(500, str(e))
     
@@ -641,7 +642,7 @@ async def get_courses_jobs():
         if conn:
             conn.close()
     
-    return {"recommendation" : courses_jobs[0],"evaluation" : evaluation,  "skills" : skills_data, "status" : 200}
+    return {"recommendation" : courses_jobs[0], "evaluation" : evaluation,  "skills" : skills_data, "status" : 200}
     
     
 async def get_rec_courses(cur, profession, skills, weights):
