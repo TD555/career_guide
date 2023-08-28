@@ -142,8 +142,18 @@ async def check_token_valid(token):
     if response.status_code != 200:
         abort(response.status_code, response.content.decode('utf-8'))
     return response.json()['valid']
+       
+
+async def update_courses_jobs():
     
+    try:
+        logger.info("Course and Job tables creating or/and updating...")
+        await asyncio.gather(parse_course.parse(), parse_job.parse())
+    except psycopg2.OperationalError as e: abort(500, "Error connecting to the database: " + str(e))
+    except Exception as e: abort(500, str(e))
     
+    return {"status" : 200, "message" : "'Course' and 'Job' tables are updated"}
+
 
 @app.route("/get_professions", methods=["POST"])
 async def get_professions():
@@ -358,6 +368,7 @@ async def get_home_page():
             conn.close()
     
     return {"courses" : course_response, "jobs" : job_response}
+<<<<<<< HEAD
 
 
 
@@ -372,6 +383,8 @@ async def update_courses_jobs():
     except Exception as e: abort(500, str(e))
     
     return {"status" : 200, "message" : "'Course' and 'Job' tables are updated"}
+=======
+>>>>>>> df07769a4d9e526243b9d03f4f21dc357b6f2689
  
 
 @app.route("/get_recommendation", methods=["POST"])
