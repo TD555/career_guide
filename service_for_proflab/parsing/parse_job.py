@@ -266,7 +266,7 @@ async def parse():
         
         keys = str(tuple(job_infos.keys())) 
         
-        values = value_text.join([str(tuple([unicode_data(value[index].replace("'", "’")) if value[index] else "NULL" for value in job_infos.values()])) for index in range(len(job_infos['job_url']))])
+        values = value_text.join([str(tuple([unicode_data(str(value[index]).replace("'", "’")) if value[index] else "NULL" for value in job_infos.values()])) for index in range(len(job_infos['job_url']))])
         
             
         keys = keys.replace("'", "")

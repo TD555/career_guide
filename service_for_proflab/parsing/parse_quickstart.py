@@ -362,7 +362,7 @@ async def parse():
 
         keys = str(tuple(course_infos.keys())) 
 
-        values = value_text.join([str(tuple([unicode_data(value[index].replace("'", "’")) if value[index] else "NULL" for value in course_infos.values()])) for index in range(len(course_infos['course_url']))])
+        values = value_text.join([str(tuple([unicode_data(str(value[index]).replace("'", "’")) if value[index] else "NULL" for value in course_infos.values()])) for index in range(len(course_infos['course_url']))])
         
         keys = keys.replace("'", "")
         
