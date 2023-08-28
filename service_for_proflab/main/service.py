@@ -368,7 +368,6 @@ async def get_home_page():
             conn.close()
     
     return {"courses" : course_response, "jobs" : job_response}
-<<<<<<< HEAD
 
 
 
@@ -383,8 +382,6 @@ async def update_courses_jobs():
     except Exception as e: abort(500, str(e))
     
     return {"status" : 200, "message" : "'Course' and 'Job' tables are updated"}
-=======
->>>>>>> df07769a4d9e526243b9d03f4f21dc357b6f2689
  
 
 @app.route("/get_recommendation", methods=["POST"])
