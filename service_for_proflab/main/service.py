@@ -9,7 +9,6 @@ import traceback
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import requests
-import sys
 import re
 import asyncio
 import spacy
@@ -144,16 +143,6 @@ async def check_token_valid(token):
     return response.json()['valid']
        
 
-async def update_courses_jobs():
-    
-    try:
-        logger.info("Course and Job tables creating or/and updating...")
-        await asyncio.gather(parse_course.parse(), parse_job.parse())
-    except psycopg2.OperationalError as e: abort(500, "Error connecting to the database: " + str(e))
-    except Exception as e: abort(500, str(e))
-    
-    return {"status" : 200, "message" : "'Course' and 'Job' tables are updated"}
-
 
 @app.route("/get_professions", methods=["POST"])
 async def get_professions():
@@ -161,18 +150,18 @@ async def get_professions():
     
     # content = request.get_json()
     
-    try:
-        authorization_header = request.headers.get('Authorization')
-        print(authorization_header)
-    except: abort(500, "Invalid authorization header")
+    # try:
+    #     authorization_header = request.headers.get('Authorization')
+    #     print(authorization_header)
+    # except: abort(500, "Invalid authorization header")
         
-    if authorization_header:
-        _, token = authorization_header.split()
+    # if authorization_header:
+    #     _, token = authorization_header.split()
         
-        if not await check_token_valid(token):
-            abort(403, "Invalid authorization token")
+    #     if not await check_token_valid(token):
+    #         abort(403, "Invalid authorization token")
     
-    else: abort(401, "Authorization header not found")
+    # else: abort(401, "Authorization header not found")
     
     
     try:
@@ -387,17 +376,17 @@ async def update_courses_jobs():
 @app.route("/get_recommendation", methods=["POST"])
 async def get_recommendation():
      
-    try:
-        authorization_header = request.headers.get('Authorization')
-    except: abort(500, "Invalid authorization header")
+    # try:
+    #     authorization_header = request.headers.get('Authorization')
+    # except: abort(500, "Invalid authorization header")
         
-    if authorization_header:
-        _, token = authorization_header.split()
+    # if authorization_header:
+    #     _, token = authorization_header.split()
         
-        if not await check_token_valid(token):
-            abort(403, "Invalid authorization token")
+    #     if not await check_token_valid(token):
+    #         abort(403, "Invalid authorization token")
     
-    else: abort(401, "Authorization header not found")
+    # else: abort(401, "Authorization header not found")
 
 
     try:
@@ -592,17 +581,17 @@ async def get_recommendation():
 @app.route("/get_courses_jobs", methods=["POST"])
 async def get_courses_jobs():   
     
-    try:
-        authorization_header = request.headers.get('Authorization')
-    except: abort(500, "Invalid authorization header")
+    # try:
+    #     authorization_header = request.headers.get('Authorization')
+    # except: abort(500, "Invalid authorization header")
         
-    if authorization_header:
-        _, token = authorization_header.split()
+    # if authorization_header:
+    #     _, token = authorization_header.split()
         
-        if not await check_token_valid(token):
-            abort(403, "Invalid authorization token")
+    #     if not await check_token_valid(token):
+    #         abort(403, "Invalid authorization token")
     
-    else: abort(401, "Authorization header not found")
+    # else: abort(401, "Authorization header not found")
     
     try:
         profession = request.json["profession"]
