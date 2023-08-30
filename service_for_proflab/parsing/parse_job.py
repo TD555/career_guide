@@ -241,7 +241,8 @@ async def parse():
     if job_infos['job_url']:
 
         async def process_job_info_async(key, values):
-            tasks = [translate_to_english_async(value) if value else empty_coroutine(value) for value in values]
+            tasks = [translate_to_english_async(value) if value and key not in ("job_url", "img_url", "company", "job_email", "date_posted", "deadline", "active")
+                                                       else empty_coroutine(value) for value in values]
             # print(tasks)
             translated_values = await asyncio.gather(*tasks)
             return key, translated_values
@@ -265,7 +266,7 @@ async def parse():
         
         keys = str(tuple(job_infos.keys())) 
         
-        values = value_text.join([str(tuple([unicode_data(value[index].replace("'", "’")) if value[index] else "NULL" for value in job_infos.values()])) for index in range(len(job_infos['job_url']))])
+        values = value_text.join([str(tuple([unicode_data(str(value[index]).replace("'", "’")) if value[index] else "NULL" for value in job_infos.values()])) for index in range(len(job_infos['job_url']))])
         
             
         keys = keys.replace("'", "")
