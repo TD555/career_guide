@@ -24,7 +24,9 @@ translator = Translator1()
 API = "https://job.am/en/api/"
 ENDPOINTS = ["jobs", "industry", "jobs/details/{Id}"]
 
-ALL_INDUSTRIES = requests.get(API + ENDPOINTS[1]).json()
+try:
+    ALL_INDUSTRIES = requests.get(API + ENDPOINTS[1]).json()
+except: ALL_INDUSTRIES = {}
 
 hostname = Config.DATABASE_HOST
 database = Config.DATABASE_NAME
@@ -149,7 +151,11 @@ async def parse():
     new_jobs = [job for job in get_jobs if hy_to_en(job['Url']) not in all_urls]
     
     for job in new_jobs:
-        job_info = requests.get(API + ENDPOINTS[2].format(Id=job['Id'])).json()
+        
+        try:
+            job_info = requests.get(API + ENDPOINTS[2].format(Id=job['Id'])).json()
+        except: continue
+        
         timestamp = re.search(r'[0-9]+', job_info["DateExpires"]).group(0)
         deadline = datetime.fromtimestamp(int(timestamp)/1000)
 
@@ -173,8 +179,11 @@ async def parse():
                 case 'Work experience:':
                     job_infos["experience"].append(info_address.find_all('span')[1].text.strip())
                 case 'Salary:':
-                    job_infos["salary"].append(info_address.find_all('span')[1].text.strip())
-        
+                    if info_address.find('div', {'class' : 'txt-bold'}).text.strip():
+                        job_infos["salary"].append(info_address.find('div', {'class' : 'txt-bold'}).text.strip().replace('\n', ' '))
+                    else:
+                        job_infos["salary"].append(info_address.find_all('span')[1].text.strip().replace('\n', ' '))
+                    print(job_infos["salary"][-1])
 
         about = soup.find('div', {'class' : 'about-container job--descr'})
         
@@ -219,7 +228,9 @@ async def parse():
         job_infos["company"].append(job["Company"])
         job_infos["location"].append(job["Location"])
 
-        industry_names = [item["name"] for item in ALL_INDUSTRIES if item["id"] in job["IndustryIds"]]
+        try:
+            industry_names = [item["name"] for item in ALL_INDUSTRIES if item["id"] in job["IndustryIds"]]
+        except: industry_names = []
             
         spheres = ', '.join(industry_names)
         job_infos["sphere"].append(spheres)

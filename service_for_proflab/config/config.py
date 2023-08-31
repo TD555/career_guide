@@ -14,12 +14,12 @@ class Config:
     # API key for OpanAI
     API_KEY = os.environ.get('API_KEY')
     
-    # APP port
-    APP_PORT = os.environ.get('APP_PORT')
-    
     # Token validation
     API_DOCS = os.environ.get('API_DOCS')
 
+    # APP port
+    APP_PORT = os.environ.get('APP_PORT')
+    
     # Cron Job time
     JOB_HOUR = os.environ.get('JOB_HOUR')
     JOB_MINUTE = os.environ.get('JOB_MINUTE')
