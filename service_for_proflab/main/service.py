@@ -150,18 +150,18 @@ async def get_professions():
     
     # content = request.get_json()
     
-    # try:
-    #     authorization_header = request.headers.get('Authorization')
-    #     print(authorization_header)
-    # except: abort(500, "Invalid authorization header")
+    try:
+        authorization_header = request.headers.get('Authorization')
+        print(authorization_header)
+    except: abort(500, "Invalid authorization header")
         
-    # if authorization_header:
-    #     _, token = authorization_header.split()
+    if authorization_header:
+        _, token = authorization_header.split()
         
-    #     if not await check_token_valid(token):
-    #         abort(403, "Invalid authorization token")
+        if not await check_token_valid(token):
+            abort(403, "Invalid authorization token")
     
-    # else: abort(401, "Authorization header not found")
+    else: abort(401, "Authorization header not found")
     
     
     try:
@@ -403,17 +403,17 @@ async def update_courses_jobs():
 @app.route("/get_recommendation", methods=["POST"])
 async def get_recommendation():
      
-    # try:
-    #     authorization_header = request.headers.get('Authorization')
-    # except: abort(500, "Invalid authorization header")
+    try:
+        authorization_header = request.headers.get('Authorization')
+    except: abort(500, "Invalid authorization header")
         
-    # if authorization_header:
-    #     _, token = authorization_header.split()
+    if authorization_header:
+        _, token = authorization_header.split()
         
-    #     if not await check_token_valid(token):
-    #         abort(403, "Invalid authorization token")
+        if not await check_token_valid(token):
+            abort(403, "Invalid authorization token")
     
-    # else: abort(401, "Authorization header not found")
+    else: abort(401, "Authorization header not found")
 
 
     try:
@@ -606,17 +606,17 @@ async def get_recommendation():
 @app.route("/get_courses_jobs", methods=["POST"])
 async def get_courses_jobs():   
     
-    # try:
-    #     authorization_header = request.headers.get('Authorization')
-    # except: abort(500, "Invalid authorization header")
+    try:
+        authorization_header = request.headers.get('Authorization')
+    except: abort(500, "Invalid authorization header")
         
-    # if authorization_header:
-    #     _, token = authorization_header.split()
+    if authorization_header:
+        _, token = authorization_header.split()
         
-    #     if not await check_token_valid(token):
-    #         abort(403, "Invalid authorization token")
+        if not await check_token_valid(token):
+            abort(403, "Invalid authorization token")
     
-    # else: abort(401, "Authorization header not found")
+    else: abort(401, "Authorization header not found")
     
     try:
         profession = request.json["profession"]
