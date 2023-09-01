@@ -29,7 +29,7 @@ nltk.download('words')
 
 
 sys.path.insert(0, "service_for_proflab")
-from version import __version__, __description__
+# from version import __version__, __description__
 
 
 app = Flask(__name__)
@@ -82,7 +82,7 @@ def after_request(response):
 
 @app.route("/", methods=["GET"])
 async def info():
-    return __description__
+    return "__description__"
 
 
 # def is_english(text):
@@ -296,38 +296,49 @@ async def get_professions():
     return {"data": profs, "status" : 200}
 
 
-async def get_courses(cur):
+async def get_courses():
     
-    get_courses_script = """
-                        SELECT course_url, title, img_url, price, source, start_date, status
-                        FROM course
-                        WHERE active = TRUE
-                        ORDER BY id ASC
-                        limit 16
-                        """
-    cur.execute(get_courses_script)
-    response = cur.fetchall()
-    return [{k:v  for k, v in dict(item).items()}  for item in response]
+    conn, cur = None, None
+        
+        
+    try:
+        
+        conn = psycopg2.connect(
+            
+            host = hostname,
+            dbname = database,
+            user = username,
+            password = pwd,
+            port = port_id
+        )
+        
+        cur = conn.cursor(cursor_factory = RealDictCursor)
+        
+        get_courses_script = """
+                            SELECT course_url, title, img_url, price, source, start_date, status
+                            FROM course
+                            WHERE active = TRUE
+                            ORDER BY id ASC
+                            limit 16
+                            """
+        cur.execute(get_courses_script)
+        response = cur.fetchall()
+        return [{k:v  for k, v in dict(item).items()}  for item in response]
 
-
-async def get_jobs(cur):
+    except psycopg2.OperationalError as e:  abort(500, "Error connecting to the database: " + str(e))
+    except Exception as e: abort(500, str(e))
     
-    get_jobs_script = """
-                        SELECT location, address, company, deadline, img_url, job_url, salary, title
-                        FROM job
-                        WHERE active = TRUE
-                        ORDER BY date_posted DESC
-                        limit 16
-                        """
-    cur.execute(get_jobs_script)
-    response = cur.fetchall()
-    return [{k:v  for k, v in dict(item).items()}  for item in response]
-
+    finally:     
+        
+        if cur:
+            cur.close()
+            
+        if conn:
+            conn.close()
+            
+            
+async def get_jobs():
     
-@app.route("/get_home_page", methods=["GET"])
-async def get_home_page():
-
-
     conn, cur = None, None
         
         
@@ -343,8 +354,16 @@ async def get_home_page():
         
         cur = conn.cursor(cursor_factory = RealDictCursor)
         
-        course_response, job_response  = await asyncio.gather(get_courses(cur), get_jobs(cur))
-        
+        get_jobs_script = """
+                            SELECT location, address, company, deadline, img_url, job_url, salary, title
+                            FROM job
+                            WHERE active = TRUE
+                            ORDER BY date_posted DESC
+                            limit 16
+                            """
+        cur.execute(get_jobs_script)
+        response = cur.fetchall()
+    
     except psycopg2.OperationalError as e:  abort(500, "Error connecting to the database: " + str(e))
     except Exception as e: abort(500, str(e))
     
@@ -355,8 +374,16 @@ async def get_home_page():
             
         if conn:
             conn.close()
+            
+    return [{k:v  for k, v in dict(item).items()}  for item in response]
+
     
-    return {"courses" : course_response, "jobs" : job_response}
+@app.route("/get_home_page", methods=["GET"])
+async def get_home_page():
+        
+        course_response, job_response  = await asyncio.gather(get_courses(), get_jobs())
+    
+        return {"courses" : course_response, "jobs" : job_response}
 
 
 
@@ -460,13 +487,12 @@ async def get_recommendation():
 
     
     
-    
     main_prompt = f"""
                     You are candidate coach. I answered 3 types of questions. Here are the questions and my answers (Translate to english if needed):
                           1. personal questions - {pers_answers_txt},
                           2. professional questions - {prof_answers_txt},
                           3. psychological questions - {psych_answers_txt}.
-                    Based on my answers, please analyze and determine how well it fits the requirements for each of these skills: {', '.join(list(skills.keys()))} (In the following format - "Each skill in the following list ({', '.join(list(skills.keys()))}) : some text").
+                    Based on my answers, please analyze and determine how well it fits the requirements for each of these skills: {', '.join(list(skills.keys()))} (On the following format - "Each skill in the following list ({', '.join(list(skills.keys()))}) : some text").
                     Rate it very strictly on a scale of 0 to 10. Break down each component of the rating and briefly explain why you assigned that particular value.
                     Also, give me a suggestion (in the following format - "Suggestion: Some Text") about what skills i need to improve or develop for a better fit and therefore a higher score. (Do not give an overall score.)
                     (Only use "you" application style when addressing me, do not apply by name.)
@@ -477,7 +503,7 @@ async def get_recommendation():
         completion = openai.Completion.create(
                         engine=MODEL2,
                         prompt=main_prompt,
-                        temperature = 0.1 ** 100,
+                        temperature = 0.1 ** 1000,
                         max_tokens = 600
                     )
         
@@ -539,43 +565,42 @@ async def get_recommendation():
                 score_data.append({'title' : key, 'value' :  int(groups.group(1).strip()), 'evaluation' : groups.group(2).strip()})
                     
                 weights[key] = int(groups.group(1).strip())
-
+                
+            else: 
+                score_data.append({'title' : key, 'value' :  5, 'evaluation' : ""})
+                weights[key] = 5
+                
     for skill, value in skills.items():
         skill_data.append({'title' : skill.strip(), 'value' : value})
     
     # return ({"evaluation" : score_data, "total_score" : round(score,1), "suggestion" : suggestion, "skills" : skill_data})
     
-    conn, cur = None, None
-        
-    try:
-        conn = psycopg2.connect(
-            
-            host = hostname,
-            dbname = database,
-            user = username,
-            password = pwd,
-            port = port_id
-        )
-        
-        cur = conn.cursor(cursor_factory = RealDictCursor)
-        
-        courses_jobs = await asyncio.gather(get_rec_courses(cur, profession, skills, weights), get_rec_jobs(cur, profession, skills, weights))
 
-        courses_jobs[0].update(courses_jobs[1])
-        # print(courses_jobs)
-       
-    except psycopg2.OperationalError as e:  abort(500, "Error connecting to the database: " + str(e))
-    except Exception as e: abort(500, str(e))
+    get_courses = await asyncio.gather(get_rec_courses(profession, skills, weights), get_rec_jobs(profession, skills, weights))
+
+    get_courses[0].update(get_courses[1])
     
-    finally:     
-        
-        if cur:
-            cur.close()
-            
-        if conn:
-            conn.close()
     
-    return {"evaluation" : score_data, "total_score" : round(score,1), "suggestion" : suggestion, "skills" : skill_data, "recommendation" : courses_jobs[0], "status" : 200}
+    return {"evaluation" : score_data, "total_score" : round(score,1), "suggestion" : suggestion, "skills" : skill_data, "recommendation" :get_courses[0], "status" : 200}
+
+
+
+# import yappi
+# from functools import wraps
+# import asyncio
+
+# def async_profile(fn):
+#     @wraps(fn)
+#     async def profiled(*args, **kwargs):
+#         yappi.set_clock_type("cpu")
+#         yappi.start()
+#         try:
+#             result = await fn(*args, **kwargs)
+#         finally:
+#             yappi.stop()
+#             yappi.get_func_stats().print_all()
+#         return result
+#     return profiled
 
 
 @app.route("/get_courses_jobs", methods=["POST"])
@@ -611,10 +636,138 @@ async def get_courses_jobs():
                   
     except: abort(500, "Invalid data of evaluation")
     
+    print("Calling rec_courses...")
+    get_courses = await asyncio.gather(get_rec_courses(profession, skills, weights), get_rec_jobs(profession, skills, weights))
+
+    get_courses[0].update(get_courses[1])
+       
+  
     
-    conn, cur = None, None
+    return {"recommendation" : get_courses[0], "evaluation" : evaluation,  "skills" : skills_data, "status" : 200}
+   
+    
+course_cache = {}
+
+
+async def get_rec_courses(profession, skills, weights):
     
     try:
+        
+        conn, cur = None, None
+        
+        # Check if the result is cached
+
+        conn = psycopg2.connect(
+                host=hostname,
+                dbname=database,
+                user=username,
+                password=pwd,
+                port=port_id
+            )
+
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        get_script = """
+                        SELECT id, title, sphere, description
+                        FROM course
+                        WHERE active = TRUE;
+                        """
+
+        cur.execute(get_script)
+
+        response = cur.fetchall()
+
+        courses = [item for item in response]
+
+        cache_key = (profession, tuple(weights.items()), tuple(skills.items()), tuple(item['id'] for item in response))
+        
+        
+        if cache_key in course_cache:
+            response = course_cache[cache_key]
+            
+        else:
+
+            nlp = spacy.load("en_core_web_md")
+            # Perform NLP operations on the profession once and reuse
+            profession_title = nlp(profession)
+
+            # Filter stopwords and tokenize skills once and reuse
+            all_tokens = [
+                [token.strip() for token in (profession + ' - ' + skill).split()]
+                for skill in skills
+            ]
+
+            all_cleaned_skills = [
+                ' '.join(token for token in tokens if token not in stwords)
+                for tokens in all_tokens
+            ]
+
+
+            matches = {}
+            
+            for course in courses:
+                # Perform NLP operations on the course title once and reuse
+                course_t = course['sphere'] + " : " + course['title'].replace('AI', 'Artificial Intelligence')
+                course_title = nlp(course['sphere'] + " : " + course['title'].replace('AI', 'Artificial Intelligence'))
+
+                cleaned_course = ' '.join(token for token in course_t.split() if token not in stwords)
+
+                similarity = []
+                title_similarity = course_title.similarity(profession_title)
+
+                for i, cleaned_skill in enumerate(all_cleaned_skills):
+                    similarity.append(
+                        fuzz.partial_token_set_ratio(
+                            cleaned_course,
+                            cleaned_skill.replace("communication", "communication English, Russian").replace(
+                                "Communication", "Communication English, Russian"
+                            )
+                        ) / 100 * (10 - skills[list(skills.keys())[i]]) * title_similarity ** 0.5 * weights.get(list(skills.keys())[i], 5))
+
+                matches[course['id']] = max(similarity)
+
+            required_courses = [item[0] for item in sorted(matches.items(), key=lambda x: x[1], reverse=True)]
+            
+            
+            course_ids = str(tuple(required_courses[:5]))
+            # print(course_ids)
+            
+            get_script = f"""
+                            SELECT course_url, title, img_url, price, source, start_date, status
+                            FROM course
+                            WHERE id in {course_ids};
+                            """
+            
+            
+            cur.execute(get_script)
+            response = cur.fetchall()
+            # Cache the result for future use
+            course_cache[cache_key] = response
+
+    except psycopg2.OperationalError as e:
+        return jsonify({"error": "Error connecting to the database: " + str(e)}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+            
+    # print(response, required_courses)
+    
+    return {"courses" : [{k:v  for k, v in dict(item).items()}  for item in response]}
+
+
+job_cache = {}
+
+
+async def get_rec_jobs(profession, skills, weights):
+    
+    try:
+        
+        conn, cur = None, None
+        
         conn = psycopg2.connect(
             
             host = hostname,
@@ -625,11 +778,91 @@ async def get_courses_jobs():
         )
         
         cur = conn.cursor(cursor_factory = RealDictCursor)
+            
+        cache_key = (profession, tuple(weights.items()), tuple(skills.items()))
         
-        courses_jobs = await asyncio.gather(get_rec_courses(cur, profession, skills, weights), get_rec_jobs(cur, profession, skills, weights))
+        if cache_key in job_cache:
+            response = job_cache[cache_key]
+            
+        else:
+            get_script = """
+                            SELECT id, title, sphere, requirements
+                            FROM job
+                            WHERE active = TRUE;
+                            """
+            
+            
+            cur.execute(get_script)
+            response = cur.fetchall()
+            response = [{k:v  for k, v in dict(item).items()}  for item in response]
+            
+            # low_skills  = {k:v for k, v in skills.items() if v < 8}
+            
+            all_tokens = [
+                [token.strip() for token in (profession + ' - ' + skill).split()]
+                for skill in skills
+            ]
 
-        courses_jobs[0].update(courses_jobs[1])
-       
+            all_cleaned_skills = [
+                ' '.join(token for token in tokens if token not in stwords)
+                for tokens in all_tokens
+            ]
+                        
+            nlp = spacy.load("en_core_web_md")
+
+            jobs = [item for item in response]
+
+            matches = {}
+            # courses.append({"title" : "Tableau for beginners", "sphere" : "IT", "description" : ""})
+
+            profession_title = nlp(profession)
+            
+            for job in jobs:
+                
+                job_title = nlp(job['sphere'] + " : " + job['title'].replace('AI', 'Artificial Intelligence'))
+                similarity = []
+                
+                tokens = [token.strip() for token in (job['sphere'] + ' : ' + job['title'].replace('AI', 'Artificial Intelligence')).split()]
+                cleaned_job = ''
+                for token in tokens:
+                    if token not in stwords:
+                        cleaned_job += token + ' '
+
+                fuzz_ratios = np.vectorize(fuzz.partial_token_set_ratio)([skill.replace("communication", "communication English, Russian").replace(\
+                                    "Communication", "Communication English, Russian") for skill in skills.keys()], cleaned_job)
+                job_similarity = job_title.similarity(profession_title)
+                
+                for i in range(len(all_cleaned_skills)):
+
+                    similarity.append(fuzz_ratios[i]/100 * (skills[list(skills.keys())[i]]) * job_similarity**0.5 *\
+                                weights.get(list(skills.keys())[i], 5))
+                  
+                    if isinstance(similarity[-1], complex):
+                        similarity.pop()
+                    
+
+                matches[job['id']] = max(similarity)
+                
+            required_jobs = [item[0] for item in sorted(matches.items(), key=lambda x: x[1], reverse=True)]
+            # print(required_jobs)
+
+            jobs = required_jobs[:5]   
+            
+            job_ids = str(tuple(required_jobs[:5]))
+            # print(job_ids)
+            
+            get_script = f"""
+                            SELECT location, address, company, deadline, img_url, job_url, salary, title
+                            FROM job
+                            WHERE id in {job_ids};
+                            """
+            
+            
+            cur.execute(get_script)
+            response = cur.fetchall()
+            
+            job_cache[cache_key] = response
+
     except psycopg2.OperationalError as e:  abort(500, "Error connecting to the database: " + str(e))
     except Exception as e: abort(500, str(e))
     
@@ -640,174 +873,5 @@ async def get_courses_jobs():
             
         if conn:
             conn.close()
-    
-    return {"recommendation" : courses_jobs[0], "evaluation" : evaluation,  "skills" : skills_data, "status" : 200}
-    
-    
-async def get_rec_courses(cur, profession, skills, weights):
-    
-    get_script = """
-                    SELECT id, title, sphere, description
-                    FROM course
-                    WHERE active = TRUE;
-                    """
-    
-    
-    cur.execute(get_script)
-    response = cur.fetchall()
-    response = [{k:v  for k, v in dict(item).items()}  for item in response]
-    
-    # low_skills  = {k:v for k, v in skills.items() if v < 8}
-    all_skills = {k:v for k, v in skills.items()}
-    all_cleaned_skills = []
-    
-    all_tokens = [[token.strip() for token in (profession + ' - ' + skill).split()] for skill in all_skills]
-
-    for tokens in all_tokens:
-        cleaned_skill = ''
-        for token in tokens:
-            if token not in stwords:
-                cleaned_skill += token + ' '
-        all_cleaned_skills.append(cleaned_skill.strip())        
-
-    nlp = spacy.load("en_core_web_md")
-
-    courses = [item for item in response]
-    
-    
-    matches = {}
-    # courses.append({"title" : "Tableau for beginners", "sphere" : "IT", "description" : ""})
-
-    profession_title = nlp(profession)
-    print("skills - ", skills, " weights - ", weights)
-    for course in courses:
-        course_title = nlp(course['sphere'] + " : " + course['title'].replace('AI', 'Artificial Intelligence'))
-        # description = nlp(course['description'].replace('AI', 'Artificial Intelligence'))
-        
-        tokens = [token.strip() for token in (course['sphere'] + ' : ' + course['title'].replace('AI', 'Artificial Intelligence')).split()]
-        cleaned_course = ''
-        for token in tokens:
-            if token not in stwords:
-                cleaned_course += token + ' '
-                
-        similarity = []
-        title_similarity = course_title.similarity(profession_title)
-        
-        for i, cleaned_skill in enumerate(all_cleaned_skills):
-            # skill_name = nlp(list(all_skills.keys())[i])
-
-            similarity.append(fuzz.partial_token_set_ratio(cleaned_course, cleaned_skill.replace("communication", "communication English, Russian").replace(\
-                            "Communication", "Communication English, Russian"))/100 * (10 - skills[list(all_skills.keys())[i]]) * title_similarity**0.5 * weights.get(list(all_skills.keys())[i], 5))
             
-            # print(similarity[-1], cleaned_course, cleaned_skill.replace("communication", "communication : English, Russian").replace("Communication", "Communication : English Russian"))
-
-        matches[course['id']] = max(similarity)
-        
-    required_courses = [item[0] for item in sorted(matches.items(), key=lambda x: x[1], reverse=True)]
-    # print(required_courses)
-    
-    courses = required_courses[:5]   
-    
-    course_ids = str(tuple(required_courses[:5]))
-    # print(course_ids)
-    
-    get_script = f"""
-                    SELECT course_url, title, img_url, price, source, start_date, status
-                    FROM course
-                    WHERE id in {course_ids};
-                    """
-    
-    
-    cur.execute(get_script)
-    response = cur.fetchall()
-    
-    return {"courses" : [{k:v  for k, v in dict(item).items()}  for item in response]}
-
-
-async def get_rec_jobs(cur, profession, skills, weights):
-    get_script = """
-                    SELECT id, title, sphere, requirements
-                    FROM job
-                    WHERE active = TRUE;
-                    """
-    
-    
-    cur.execute(get_script)
-    response = cur.fetchall()
-    response = [{k:v  for k, v in dict(item).items()}  for item in response]
-    
-    # low_skills  = {k:v for k, v in skills.items() if v < 8}
-    all_skills = {k:v for k, v in skills.items()}
-    all_cleaned_skills = []
-    
-    all_tokens = [[token.strip() for token in (profession + ' - ' + skill).split()] for skill in all_skills]
-
-    for tokens in all_tokens:
-        cleaned_skill = ''
-        for token in tokens:
-            if token not in stwords:
-                cleaned_skill += token + ' '
-        all_cleaned_skills.append(cleaned_skill.strip())        
-                
-    nlp = spacy.load("en_core_web_md")
-
-    jobs = [item for item in response]
-
-    matches = {}
-    # courses.append({"title" : "Tableau for beginners", "sphere" : "IT", "description" : ""})
-
-    profession_title = nlp(profession)
-    
-    for job in jobs:
-        
-        job_title = nlp(job['sphere'] + " : " + job['title'].replace('AI', 'Artificial Intelligence'))
-        # if job['requirements']:
-        #     requirements = nlp(job['requirements'].replace('AI', 'Artificial Intelligence'))
-        # else: requirements = ''
-        similarity = []
-        
-        tokens = [token.strip() for token in (job['sphere'] + ' : ' + job['title'].replace('AI', 'Artificial Intelligence')).split()]
-        cleaned_job = ''
-        for token in tokens:
-            if token not in stwords:
-                cleaned_job += token + ' '
-
-        fuzz_ratios = np.vectorize(fuzz.partial_token_set_ratio)([skill.replace("communication", "communication English, Russian").replace(\
-                            "Communication", "Communication English, Russian") for skill in all_skills.keys()], cleaned_job)
-        job_similarity = job_title.similarity(profession_title)
-        
-        for i, cleaned_skill in enumerate(all_cleaned_skills):
-            # skill_name = nlp(cleaned_skill)
-
-
-            # if requirements:
-            similarity.append(fuzz_ratios[i]/100 * (skills[list(all_skills.keys())[i]]) * job_similarity**0.5 *\
-                        weights.get(list(all_skills.keys())[i], 5))
-            # else: similarity.append(fuzz_ratios[i]/100 * (skills[list(all_skills.keys())[i]]) * job_similarity**0.5 *\
-            #                 weights[list(all_skills.keys())[i]])
-            
-            if isinstance(similarity[-1], complex):
-                similarity.pop()
-            # print(similarity[-1], cleaned_job, requirements)
-
-        matches[job['id']] = max(similarity)
-        
-    required_jobs = [item[0] for item in sorted(matches.items(), key=lambda x: x[1], reverse=True)]
-    # print(required_jobs)
-
-    jobs = required_jobs[:5]   
-    
-    job_ids = str(tuple(required_jobs[:5]))
-    # print(job_ids)
-    
-    get_script = f"""
-                    SELECT location, address, company, deadline, img_url, job_url, salary, title
-                    FROM job
-                    WHERE id in {job_ids};
-                    """
-    
-    
-    cur.execute(get_script)
-    response = cur.fetchall()
-
     return {"jobs" : [{k:v  for k, v in dict(item).items()}  for item in response]}
