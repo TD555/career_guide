@@ -606,17 +606,17 @@ async def get_recommendation():
 @app.route("/get_courses_jobs", methods=["POST"])
 async def get_courses_jobs():   
     
-    try:
-        authorization_header = request.headers.get('Authorization')
-    except: abort(500, "Invalid authorization header")
+    # try:
+    #     authorization_header = request.headers.get('Authorization')
+    # except: abort(500, "Invalid authorization header")
         
-    if authorization_header:
-        _, token = authorization_header.split()
+    # if authorization_header:
+    #     _, token = authorization_header.split()
         
-        if not await check_token_valid(token):
-            abort(403, "Invalid authorization token")
+    #     if not await check_token_valid(token):
+    #         abort(403, "Invalid authorization token")
     
-    else: abort(401, "Authorization header not found")
+    # else: abort(401, "Authorization header not found")
     
     try:
         profession = request.json["profession"]
@@ -705,24 +705,22 @@ async def get_rec_courses(profession, skills, weights):
 
             matches = {}
             
+
             for course in courses:
                 # Perform NLP operations on the course title once and reuse
                 course_t = course['sphere'] + " : " + course['title'].replace('AI', 'Artificial Intelligence')
-                course_title = nlp(course['sphere'] + " : " + course['title'].replace('AI', 'Artificial Intelligence'))
+                course_title = nlp(course_t)
 
                 cleaned_course = ' '.join(token for token in course_t.split() if token not in stwords)
 
-                similarity = []
                 title_similarity = course_title.similarity(profession_title)
 
-                for i, cleaned_skill in enumerate(all_cleaned_skills):
-                    similarity.append(
-                        fuzz.partial_token_set_ratio(
-                            cleaned_course,
-                            cleaned_skill.replace("communication", "communication English, Russian").replace(
-                                "Communication", "Communication English, Russian"
-                            )
-                        ) / 100 * (10 - skills[list(skills.keys())[i]]) * title_similarity ** 0.5 * weights.get(list(skills.keys())[i], 5))
+                # Use list comprehension to calculate similarity
+                similarity = [
+                    (fuzz.partial_token_set_ratio(cleaned_course, re.sub(r'[Cc]ommunication', "Communication English, Russian", cleaned_skill))
+                    / 100 * (10 - skills[list(skills.keys())[i]]) * title_similarity ** 0.5 * weights.get(list(skills.keys())[i], 5))
+                    for i, cleaned_skill in enumerate(all_cleaned_skills)
+                ]
 
                 matches[course['id']] = max(similarity)
 
@@ -819,26 +817,21 @@ async def get_rec_jobs(profession, skills, weights):
             
             for job in jobs:
                 
-                job_title = nlp(job['sphere'] + " : " + job['title'].replace('AI', 'Artificial Intelligence'))
-                similarity = []
+                job_t = job['sphere'] + " : " + job['title'].replace('AI', 'Artificial Intelligence')
+                job_title = nlp(job_t)
                 
-                tokens = [token.strip() for token in (job['sphere'] + ' : ' + job['title'].replace('AI', 'Artificial Intelligence')).split()]
-                cleaned_job = ''
-                for token in tokens:
-                    if token not in stwords:
-                        cleaned_job += token + ' '
+                cleaned_job = ' '.join(token for token in job_t.split() if token not in stwords)
 
-                fuzz_ratios = np.vectorize(fuzz.partial_token_set_ratio)([skill.replace("communication", "communication English, Russian").replace(\
-                                    "Communication", "Communication English, Russian") for skill in skills.keys()], cleaned_job)
                 job_similarity = job_title.similarity(profession_title)
                 
-                for i in range(len(all_cleaned_skills)):
 
-                    similarity.append(fuzz_ratios[i]/100 * (skills[list(skills.keys())[i]]) * job_similarity**0.5 *\
-                                weights.get(list(skills.keys())[i], 5))
+
+                similarity= [(fuzz.partial_token_set_ratio(cleaned_job, re.sub(r'[Cc]ommunication', "Communication English, Russian", cleaned_skill))/
+                              100 * (skills[list(skills.keys())[i]]) * job_similarity**0.5 * weights.get(list(skills.keys())[i], 5))
+                              for i, cleaned_skill in enumerate(all_cleaned_skills)]
                   
-                    if isinstance(similarity[-1], complex):
-                        similarity.pop()
+                if isinstance(similarity[-1], complex):
+                    similarity.pop()
                     
 
                 matches[job['id']] = max(similarity)
