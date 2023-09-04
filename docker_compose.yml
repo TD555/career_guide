@@ -1,0 +1,16 @@
+services:
+  app:
+    image: service_proflab
+    build: ./service_for_proflab
+    ports:
+      - "5000:5000"
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: '1G'
+        reservations:
+          cpus: '1'
+          memory: 500M
+  

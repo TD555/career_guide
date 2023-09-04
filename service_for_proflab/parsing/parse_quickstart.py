@@ -335,7 +335,7 @@ async def parse():
         
         course_infos["start_date"] = []
         
-        for schedule in course_infos["schedule"]:
+        for schedule in course_infos.get("schedule", []):
             match = re.search(r"([A-Za-z]+) (\d{1,2})", schedule)
             if match:
                 if match.group(1) in month_names:
