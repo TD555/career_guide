@@ -7,9 +7,9 @@ from config.config import Config
 
 if __name__ == "__main__":
     hour = int(Config.JOB_HOUR)
-    if hour >= 4 and hour<24:
+    if hour >= 4 and hour < 24:
         hour -=4
-    elif hour >=0 and hour<4: hour+=20
+    elif hour >= 0 and hour < 4: hour +=20
     else: hour = 0
     
     scheduler.add_job(id ='job',func=job, trigger='cron', hour=hour, minute=int(Config.JOB_MINUTE))

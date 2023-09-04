@@ -1,4 +1,4 @@
-flask[async]==2.2.3
+flask[async]==2.3.3
 Flask-Caching==2.0.2
 python-dotenv==1.0.0
 openai==0.27.2
@@ -10,10 +10,12 @@ googletrans==4.0.0-rc1
 translate==3.6.1
 deep-translator==1.11.4
 waitress==2.1.2
+# gunicorn==20.1.0
+# gevent==23.7.0
 beautifulsoup4==4.12.2
 psycopg2==2.9.6
 fuzzywuzzy==0.18.0
 python-Levenshtein==0.21.1
 nltk==3.8.1
-spacy==3.6.0
+spacy==3.5.0
 Flask-APScheduler==1.12.4

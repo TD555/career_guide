@@ -29,7 +29,7 @@ nltk.download('words')
 
 
 sys.path.insert(0, "service_for_proflab")
-# from version import __version__, __description__
+from version import __version__, __description__
 
 
 app = Flask(__name__)
@@ -82,7 +82,7 @@ def after_request(response):
 
 @app.route("/", methods=["GET"])
 async def info():
-    return "__description__"
+    return __description__
 
 
 # def is_english(text):
@@ -648,7 +648,6 @@ async def get_courses_jobs():
     
 course_cache = {}
 
-
 async def get_rec_courses(profession, skills, weights):
     
     try:
@@ -740,6 +739,16 @@ async def get_rec_courses(profession, skills, weights):
             cur.execute(get_script)
             response = cur.fetchall()
             # Cache the result for future use
+            
+            dict_size_bytes = sys.getsizeof(course_cache)
+            dict_size_mb = dict_size_bytes / (1024 * 1024)
+            
+            while dict_size_mb >=256:
+                first_key = next(iter(course_cache))
+                del course_cache[first_key]
+                dict_size_bytes = sys.getsizeof(course_cache)
+                dict_size_mb = dict_size_bytes / (1024 * 1024)
+                
             course_cache[cache_key] = response
 
     except psycopg2.OperationalError as e:
@@ -855,6 +864,15 @@ async def get_rec_jobs(profession, skills, weights):
             cur.execute(get_script)
             response = cur.fetchall()
             
+            dict_size_bytes = sys.getsizeof(job_cache)
+            dict_size_mb = dict_size_bytes / (1024 * 1024)
+            
+            while dict_size_mb >=256:
+                first_key = next(iter(job_cache))
+                del job_cache[first_key]
+                dict_size_bytes = sys.getsizeof(job_cache)
+                dict_size_mb = dict_size_bytes / (1024 * 1024)
+
             job_cache[cache_key] = response
 
     except psycopg2.OperationalError as e:  abort(500, "Error connecting to the database: " + str(e))
