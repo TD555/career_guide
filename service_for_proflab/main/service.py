@@ -318,7 +318,7 @@ async def get_courses():
                             SELECT course_url, title, img_url, price, source, start_date, status
                             FROM course
                             WHERE active = TRUE
-                            ORDER BY id ASC
+                            ORDER BY parse_date DESC
                             limit 16
                             """
         cur.execute(get_courses_script)
