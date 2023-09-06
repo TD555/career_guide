@@ -1,9 +1,16 @@
 services:
   app:
     image: service_proflab
-    build: ./service_for_proflab
+    build: 
+      context: ./service_for_proflab
+      args:
+        DB_USER: proflab_user
+        DB_PASSWORD: puacX9KK[@mX
+        DB_HOST: localhost
+        DB_NAME: proflab_db
+        DB_PORT: 5432
     ports:
-      - "5000:5000"
+      - "8591:5000"
     restart: always
     deploy:
       resources:

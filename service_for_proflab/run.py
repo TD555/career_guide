@@ -14,4 +14,4 @@ if __name__ == "__main__":
     
     scheduler.add_job(id ='job',func=job, trigger='cron', hour=hour, minute=int(Config.JOB_MINUTE))
     scheduler.start()
-    serve(app, port=Config.APP_PORT)
+    serve(app, port=5000)

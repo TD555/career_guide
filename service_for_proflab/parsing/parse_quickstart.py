@@ -22,6 +22,7 @@ translator = Translator1()
 month_names = list(calendar.month_name)[1:]
 #Connect to database
 
+
 hostname = Config.DATABASE_HOST
 database = Config.DATABASE_NAME
 username = Config.DATABASE_USER
@@ -110,6 +111,7 @@ async def parse():
                         end_date DATE,
                         price text,
                         trainer text,
+                        parse_date timestamp,
                         status varchar(50),
                         source varchar(100),
                         active bool
@@ -126,30 +128,32 @@ async def parse():
     cur.execute(get_urls) 
     
     all_urls = [item[0] for item in cur.fetchall()]      
-                        
-        
-        
+
+    
+ 
     with urlopen('https://quickstart.am/en/open-trainings/#') as response:
         soup = await parse_html(response)
         exists =[]
         
-        for anchor in soup.find_all('a', {"class": "eltdf-cli-link eltdf-block-drag-link"}):
+        for anchor in list(soup.find_all('a', {"class": "eltdf-cli-link eltdf-block-drag-link"}))[::-1]:
             course_url = (anchor.get('href', '/'))
             if course_url not in all_urls:
                 exists.append(True)
                 course_infos["course_url"].append(course_url)
+                course_infos["parse_date"].append(datetime.utcnow())
+                await asyncio.sleep(0.001)
             else:
                 real_urls.append(course_url) 
                 exists.append(False)
                 
         
-        images = [img.img['src'] if img else "" for img in soup.find_all('div', {"class" : "eltdf-cli-image"})]
+        images = [img.img['src'] if img else "" for img in list(soup.find_all('div', {"class" : "eltdf-cli-image"}))[::-1]]
         for i in range(len(exists)):
             if exists[i]:
                 course_infos["img_url"] .append(images[i])
             
             
-        for i, anchor in enumerate(soup.find_all('div', {"class": "eltdf-cli-category-holder"})):
+        for i, anchor in enumerate(list(soup.find_all('div', {"class": "eltdf-cli-category-holder"}))[::-1]):
             if exists[i]:
                 texts = []
                 for sphere in anchor.find_all('a', {"class" : "eltdf-cli-category"}):
@@ -175,14 +179,12 @@ async def parse():
             print(course_urls.index(course_url), course_url)
 
             await asyncio.sleep(2)
-            
-            while True:
-                try: 
-                    soup = await parse_html(response)
-                    break
-                except Exception as error: 
-                    print(error)
-                    continue
+
+            try: 
+                soup = await parse_html(response)
+            except Exception as error: 
+                print(error)
+                continue
                 
             # await asyncio.sleep(1)
             
@@ -193,8 +195,12 @@ async def parse():
             
             # await asyncio.sleep(1)
             
-            content = soup.find_all('div', {'class' : 'wpb_text_column wpb_content_element'})[-1].find('div')
-                
+            try:
+                content = soup.find_all('div', {'class' : 'wpb_text_column wpb_content_element'})[-1].find('div')
+            except: 
+                content = None
+                print(f"Empty content - {course_url}")
+            
             all_tags = content.find_all()
             
             
@@ -310,7 +316,7 @@ async def parse():
 
         
         async def process_course_info_async(key, values):
-            tasks = [translate_to_english_async(value) if value and key not in ("course_url", "img_url", "start_date", "end_date", "source", "active")
+            tasks = [translate_to_english_async(value) if value and key not in ("course_url", "img_url", "start_date", "end_date", "parse_date", "source", "active")
                                                        else empty_coroutine(value) for value in values]
             # print(tasks)
             translated_values = await asyncio.gather(*tasks)
@@ -380,6 +386,7 @@ async def parse():
         keys = list(course_infos.keys())
         keys.remove('end_date')
         keys.remove('start_date')
+        keys.remove('parse_date')
         keys.remove('active')
         
         for key in keys:
