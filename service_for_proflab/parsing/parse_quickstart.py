@@ -12,7 +12,7 @@ from deep_translator import GoogleTranslator as Translator
 import calendar
 from datetime import datetime, date
 import re
-# from config.config import Config
+from config.config import Config
 
 
 nltk.download('averaged_perceptron_tagger')
@@ -23,17 +23,11 @@ month_names = list(calendar.month_name)[1:]
 #Connect to database
 
 
-hostname = "localhost"
-database = "flask_db"
-username = "postgres"
-pwd = "Tik.555"
-port_id = 5432
-
-# hostname = Config.DATABASE_HOST
-# database = Config.DATABASE_NAME
-# username = Config.DATABASE_USER
-# pwd = Config.DATABASE_PASSWORD
-# port_id = Config.DATABASE_PORT
+hostname = Config.DATABASE_HOST
+database = Config.DATABASE_NAME
+username = Config.DATABASE_USER
+pwd = Config.DATABASE_PASSWORD
+port_id = Config.DATABASE_PORT
 
 
 translator = Translator1()
