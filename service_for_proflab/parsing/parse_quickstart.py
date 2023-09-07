@@ -20,8 +20,6 @@ nltk.download('words')
 
 translator = Translator1()
 month_names = list(calendar.month_name)[1:]
-#Connect to database
-
 
 hostname = Config.DATABASE_HOST
 database = Config.DATABASE_NAME
@@ -123,7 +121,8 @@ async def parse():
     
     get_urls = """
                     SELECT course_url
-                    FROM course"""
+                    FROM course
+                    WHERE active = TRUE"""
     
     cur.execute(get_urls) 
     
@@ -350,9 +349,14 @@ async def parse():
                     year = date.today().year
                     
                     month_num = datetime.strptime(month, "%B").month
-
+                    
+                    today = date.today()
+                    
                     # Create a datetime object with the provided components
-                    date_obj = datetime(year, month_num, int(day))
+                    if month_num > today.month - 6:
+                        date_obj = datetime(year, month_num, int(day))
+                        
+                    else: date_obj = datetime(year+1, month_num, int(day))
 
                     # Format the date as "DD/MM/YYYY"
                     formatted_date = date_obj.strftime("%Y-%m-%d")
@@ -362,7 +366,7 @@ async def parse():
                 else: course_infos["start_date"].append("NULL")
             else: course_infos["start_date"].append("NULL")
         
-        # print(course_infos)
+        print("date : ", course_infos["start_date"][-1])
                                             
         value_text = ", "
 

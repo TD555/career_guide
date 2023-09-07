@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, abort, render_template
+from flask import Flask, jsonify, request, abort
 import sys
 sys.path.append('service_for_proflab')
 from config.config import Config
@@ -13,12 +13,8 @@ import re
 import asyncio
 import spacy
 from flask_apscheduler import APScheduler
-import numpy as np
 import parsing.parse_quickstart as parse_course
 import parsing.parse_job as parse_job
-from googletrans import Translator as Translator1
-from translate import Translator as Translator2
-from deep_translator import GoogleTranslator as Translator
 from nltk.corpus import stopwords
 import nltk
 
@@ -34,7 +30,6 @@ from version import __version__, __description__
 
 app = Flask(__name__)
 
-translator = Translator1()
 
 MODEL1 = "gpt-3.5-turbo"
 MODEL2 = "text-davinci-003"
@@ -48,6 +43,14 @@ database = Config.DATABASE_NAME
 username = Config.DATABASE_USER
 pwd = Config.DATABASE_PASSWORD
 port_id = Config.DATABASE_PORT
+
+
+hostname = "localhost"
+database = "flask_db"
+username = "postgres"
+pwd = "Tik.555"
+port_id = 5432
+
 
 import logging
 
@@ -481,7 +484,7 @@ async def get_recommendation():
         
     psych_answers_txt = ',\n'.join(answers_data)
     
-    print(answers_data)
+    # print(answers_data)
     
     # print(answers_data)
 
@@ -511,7 +514,7 @@ async def get_recommendation():
             abort("Tokens count passed",  403)
 
     text = (completion["choices"][0]["text"]).strip()
-    # print(text)
+    print(text)
     
     text = re.sub(r'\b(I am|Me am)\b', 'You are', text)
     text = re.sub(r'\b(i am|me am)\b', 'you are', text)
@@ -771,6 +774,7 @@ job_cache = {}
 
 async def get_rec_jobs(profession, skills, weights):
     
+    
     try:
         
         conn, cur = None, None
@@ -793,7 +797,7 @@ async def get_rec_jobs(profession, skills, weights):
             
         else:
             get_script = """
-                            SELECT id, title, sphere, requirements
+                            SELECT id, title, sphere
                             FROM job
                             WHERE active = TRUE;
                             """
@@ -815,29 +819,26 @@ async def get_rec_jobs(profession, skills, weights):
                 for tokens in all_tokens
             ]
                         
-            nlp = spacy.load("en_core_web_md")
+            # nlp = spacy.load("en_core_web_md")
 
             jobs = [item for item in response]
 
             matches = {}
             # courses.append({"title" : "Tableau for beginners", "sphere" : "IT", "description" : ""})
 
-            profession_title = nlp(profession)
             
             for job in jobs:
                 
                 job_t = job['sphere'] + " : " + job['title'].replace('AI', 'Artificial Intelligence')
-                job_title = nlp(job_t)
 
                 
                 cleaned_job = ' '.join(token for token in job_t.split() if token not in stwords)
 
-                job_similarity = job_title.similarity(profession_title)
+                # job_similarity = job_title.similarity(profession_title)
                 
 
-
                 similarity= [(fuzz.partial_token_set_ratio(cleaned_job, re.sub(r'[Cc]ommunication', "Communication English, Russian", cleaned_skill))/
-                              100 * (skills[list(skills.keys())[i]]) * job_similarity**0.5 * weights.get(list(skills.keys())[i], 5))
+                              100 * fuzz.token_sort_ratio(job['title'].replace('AI', 'Artificial Intelligence'), profession)/100 * weights.get(list(skills.keys())[i], 5))
                               for i, cleaned_skill in enumerate(all_cleaned_skills)]
                   
                 if isinstance(similarity[-1], complex):
@@ -847,12 +848,10 @@ async def get_rec_jobs(profession, skills, weights):
                 matches[job['id']] = max(similarity)
                 
             required_jobs = [item[0] for item in sorted(matches.items(), key=lambda x: x[1], reverse=True)]
-            # print(required_jobs)
-
-            jobs = required_jobs[:5]   
-            
+            # print(required_jobs) 
+                
             job_ids = str(tuple(required_jobs[:5]))
-            # print(job_ids)
+            # print(str(tuple(required_jobs[:10])))
             
             get_script = f"""
                             SELECT location, address, company, deadline, img_url, job_url, salary, title
