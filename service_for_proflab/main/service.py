@@ -25,7 +25,7 @@ nltk.download('words')
 
 
 sys.path.insert(0, "service_for_proflab")
-from version import __version__, __description__
+# from version import __version__, __description__
 
 
 app = Flask(__name__)
@@ -85,7 +85,7 @@ def after_request(response):
 
 @app.route("/", methods=["GET"])
 async def info():
-    return __description__
+    return "__description__"
 
 
 # def is_english(text):
@@ -132,9 +132,9 @@ async def clean_questions(questions:dict):
     updated_dict = await replace_none_with_empty(questions['licenses'])
     data['licenses'] = ', '.join([item['title'] for item in updated_dict])
     updated_dict = await replace_none_with_empty(questions['educations'])
-    data['educations'] = ', '.join([item['field'] + ' - ' + item['degree'] for item in updated_dict])
+    data['educations'] = ', '.join(['Field - ' + item['field'] + ' Degree - ' + item['degree'] for item in updated_dict])
     updated_dict = await replace_none_with_empty(questions['experiences'])
-    data['experiences'] = ', '.join([item['description'] + 'Position - ' + item['position'] for item in updated_dict])
+    data['experiences'] = ', '.join([item['description'] + ' Position - ' + item['position'] for item in updated_dict])
     
     return data    
 
@@ -149,9 +149,7 @@ async def check_token_valid(token):
 
 @app.route("/get_professions", methods=["POST"])
 async def get_professions():
-    #   ---Get file and parse content---
     
-    # content = request.get_json()
     
     try:
         authorization_header = request.headers.get('Authorization')
@@ -241,7 +239,11 @@ async def get_professions():
     questions_two = data['questionAnswers']
     
     questions_two = [item if (isinstance(type(item['answers']), str)) else {'question' : item['question'], 'answers' : ', '.join(item['answers'])} for item in questions_two]
-
+    
+    exclude_professions = [item['field'] for item  in questions_one['educations']]
+    exclude_professions.extend([item['position'] for item  in questions_one['experiences']])
+    
+    print(exclude_professions)
     questions_one = await clean_questions(questions_one)
     
     questions = list(questions_one.keys())
@@ -256,15 +258,15 @@ async def get_professions():
     
     
     answers_txt = ',\n'.join(answers_data[1:])
-    # print(answers_txt)
+    print(answers_txt)
     main_prompt = f"""
                     You are career coach, I am providing you information about career questions and answers. 
                     
-                    You need determine the best match 4 professions for me. Presented professions should be and according to me, 
-                    
-                    trending, modern, perspective, independent of each other and, most importantly, did not coincide with my professions.
-                    
                     The questions and answers: {answers_txt} (Translate to english if needed).
+                    
+                    You need determine the best match 4 new professions or field of professions for me. 
+                    Presented professions should trending, modern, perspective, independent of each other and, most importantly, 
+                    none of the professions offered should be in that list of professions: {exclude_professions}. They should be based on my every answer.
                     
                     For each specialty, give me a short description and short rationale as to why it is appropriate. 
                     (Only use "you" application style when addressing me, do not apply by name.)
