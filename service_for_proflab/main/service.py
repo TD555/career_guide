@@ -25,7 +25,7 @@ nltk.download('words')
 
 
 sys.path.insert(0, "service_for_proflab")
-# from version import __version__, __description__
+from version import __version__, __description__
 
 
 app = Flask(__name__)
@@ -45,11 +45,11 @@ pwd = Config.DATABASE_PASSWORD
 port_id = Config.DATABASE_PORT
 
 
-hostname = "localhost"
-database = "flask_db"
-username = "postgres"
-pwd = "Tik.555"
-port_id = 5432
+# hostname = "localhost"
+# database = "flask_db"
+# username = "postgres"
+# pwd = "Tik.555"
+# port_id = 5432
 
 
 import logging
@@ -85,7 +85,7 @@ def after_request(response):
 
 @app.route("/", methods=["GET"])
 async def info():
-    return "__description__"
+    return __description__
 
 
 # def is_english(text):
@@ -265,7 +265,7 @@ async def get_professions():
                     The questions and answers: {answers_txt} (Translate to english if needed).
                     
                     You need determine the best match 4 new professions or field of professions for me. 
-                    Presented professions should trending, modern, perspective, independent of each other and, most importantly, 
+                    Presented professions should be trending, modern, perspective, independent of each other and, most importantly, 
                     none of the professions offered should be in that list of professions: {exclude_professions}. They should be based on my every answer.
                     
                     For each specialty, give me a short description and short rationale as to why it is appropriate. 
