@@ -26,7 +26,6 @@ nltk.download('words')
 
 sys.path.insert(0, "service_for_proflab")
 from version import __version__, __description__
-from version import __version__, __description__
 
 
 app = Flask(__name__)
@@ -87,7 +86,6 @@ def after_request(response):
 
 @app.route("/", methods=["GET"])
 async def info():
-    return __description__
     return __description__
 
 
