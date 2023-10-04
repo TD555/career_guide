@@ -12,7 +12,10 @@ class Config:
     DATABASE_NAME = os.environ.get('DB_NAME')
 
     # API key for OpanAI
-    API_KEY = os.environ.get('API_KEY')
+    OPENAI_KEY = os.environ.get('OPENAI_KEY')
+    
+    # API key for Udemy
+    UDEMY_KEY = os.environ.get('UDEMY_KEY')
     
     # Token validation
     API_DOCS = os.environ.get('API_DOCS')
