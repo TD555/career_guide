@@ -36,7 +36,8 @@ MODEL2 = "text-davinci-003"
 
 API_DOCS = Config.API_DOCS
 
-openai.api_key = Config.API_KEY
+openai.api_key = Config.OPENAI_KEY
+UDEMY_KEY = Config.UDEMY_KEY
 
 hostname = Config.DATABASE_HOST
 database = Config.DATABASE_NAME
@@ -243,7 +244,7 @@ async def get_professions():
     exclude_professions = [item['field'] for item  in questions_one['educations']]
     exclude_professions.extend([item['position'] for item  in questions_one['experiences']])
     
-    print(exclude_professions)
+    # print(exclude_professions)
     questions_one = await clean_questions(questions_one)
     
     questions = list(questions_one.keys())
@@ -255,11 +256,38 @@ async def get_professions():
     
     answers_data = [questions[i].strip() + ' : ' + answers[i].strip() if answers[i] else questions[i].strip() + ' : ' for i in range(len(questions))]
     
+    pers_answers_txt = ',\n'.join(answers_data[1:8]).strip()
+    prof_answers_txt = ',\n'.join(answers_data[8:13]).strip()
+    
+    # questions_two = [item if (isinstance(type(item['answers']), str)) else {'question' : item['question'], 'answers' : ', '.join(item['answers'])} for item in questions_two]
+    
+    questions = [item['question'] for item in questions_two]
+    answers = [item['answers'] for item in questions_two]
+    
+    answers_data = [questions[i].strip() + ' : ' + answers[i] if answers[i] else questions[i].strip() + ' : ' for i in range(len(questions))]
     
     
-    answers_txt = ',\n'.join(answers_data[1:])
-    print(answers_txt)
+        
+    psych_answers_txt = ',\n'.join(answers_data).strip()
+    
+    
+    # answers_txt = ',\n'.join(answers_data[1:])
+    
+    # print(prof_answers_txt)
+    
     main_prompt = f"""
+<<<<<<< HEAD
+                    Analyze the user’s personal information, education, experience, background, answers to the test questions and based on this 
+                    information suggest four new different professions that best correspond to this personality. 
+                    The suggested professions should not repeat the professions from education and experience. 
+                    Provide description of each suggested profession and explanation for choosing each profession.
+
+                    Here are the questions and my answers (Translate to english if needed):
+                          1. personal questions - {pers_answers_txt},
+                          2. professional questions - {prof_answers_txt},
+                          3. psychological questions - {psych_answers_txt}.
+
+=======
                     You are career coach, I am providing you information about career questions and answers. 
                     
                     The questions and answers: {answers_txt} (Translate to english if needed).
@@ -269,6 +297,7 @@ async def get_professions():
                     none of the professions offered should be in that list of professions: {exclude_professions}. They should be based on my every answer.
                     
                     For each specialty, give me a short description and short rationale as to why it is appropriate. 
+>>>>>>> d40601b26c9c3bbead729e46198e6bcfb2f7f654
                     (Only use "you" application style when addressing me, do not apply by name.)
     """
 
@@ -276,18 +305,18 @@ async def get_professions():
         completion = openai.Completion.create(
                         engine=MODEL2,
                         prompt=main_prompt,
-                        temperature = 0.1 ** 100,
+                        temperature = 0,
                         max_tokens = 600
                     )
     except openai.error.InvalidRequestError:
             return {"message" : """Tokens count passed""", "status" : "error"}
 
+    # print(completion)
     proffesions = (completion["choices"][0]["text"]).strip()
     
     proffesions = re.sub(r'\b(I|Me)\b', 'You', proffesions)
     proffesions = re.sub(r'\b(i|me)\b', 'you', proffesions)
     
-
     proffesions = re.sub(r'\bMy\b', 'Your', proffesions)
     proffesions = re.sub(r'\bmy\b', 'your', proffesions)
     
@@ -303,44 +332,63 @@ async def get_professions():
 
 async def get_courses():
     
-    conn, cur = None, None
-        
-        
+    url = "https://www.udemy.com/api-2.0/courses/"
+    headers = {
+    'Accept': 'application/json, text/plain, */*',
+    'Authorization': f'Basic {UDEMY_KEY}'
+    }
+    params = {
+        'page_size': 16,  # Number of results to retrieve per page
+        'page': 1,  # Page number to retrieve
+        'ordering': 'relevance'  # Order by relevance
+    }
     try:
-        
-        conn = psycopg2.connect(
-            
-            host = hostname,
-            dbname = database,
-            user = username,
-            password = pwd,
-            port = port_id
-        )
-        
-        cur = conn.cursor(cursor_factory = RealDictCursor)
-        
-        get_courses_script = """
-                            SELECT course_url, title, img_url, price, source, start_date, status
-                            FROM course
-                            WHERE active = TRUE
-                            ORDER BY parse_date DESC
-                            limit 16
-                            """
-        cur.execute(get_courses_script)
-        response = cur.fetchall()
-        return [{k:v  for k, v in dict(item).items()}  for item in response]
-
-    except psycopg2.OperationalError as e:  abort(500, "Error connecting to the database: " + str(e))
-    except Exception as e: abort(500, str(e))
+        response = requests.get(url, params=params, headers=headers)
+        return [{'title' : item.get('title', ''), 'url' : 'https://www.udemy.com' + item.get('url', ''), 'price' : item.get('price', ''), 'source' : 'Udemy', 
+                 'img_url' : item.get('image_480x270', ''), 'status' : 'Online'}
+                for item in response.json().get('results', [])]
+  
+    except Exception as e: abort(response.status_code, str(e))
     
-    finally:     
+    # conn, cur = None, None
         
-        if cur:
-            cur.close()
+        
+    # try:
+        
+    #     conn = psycopg2.connect(
             
-        if conn:
-            conn.close()
+    #         host = hostname,
+    #         dbname = database,
+    #         user = username,
+    #         password = pwd,
+    #         port = port_id
+    #     )
+        
+    #     cur = conn.cursor(cursor_factory = RealDictCursor)
+        
+    #     get_courses_script = """
+    #                         SELECT course_url, title, img_url, price, source, start_date, status
+    #                         FROM course
+    #                         WHERE active = TRUE
+    #                         ORDER BY parse_date DESC
+    #                         limit 16
+    #                         """
+    #     cur.execute(get_courses_script)
+    #     response = cur.fetchall()
+    #     return [{k:v  for k, v in dict(item).items()}  for item in response]
+
+    # except psycopg2.OperationalError as e:  abort(500, "Error connecting to the database: " + str(e))
+    # except Exception as e: abort(500, str(e))
+    
+    # finally:     
+        
+    #     if cur:
+    #         cur.close()
             
+    #     if conn:
+    #         conn.close()
+    
+   
             
 async def get_jobs():
     
@@ -448,7 +496,7 @@ async def get_recommendation():
     completion = openai.Completion.create(
                         engine=MODEL2,
                         prompt=main_prompt,
-                        temperature = 0.1 ** 100,
+                        temperature = 0,
                         max_tokens = 300
                     )
     
@@ -472,8 +520,8 @@ async def get_recommendation():
     # print(', '.join(list(skills.keys())))
 
     
-    pers_answers_txt = ',\n'.join(answers_data[1:8])
-    prof_answers_txt = ',\n'.join(answers_data[8:])
+    pers_answers_txt = ',\n'.join(answers_data[1:8]).strip()
+    prof_answers_txt = ',\n'.join(answers_data[8:13]).strip()
     
     questions_two = [item if (isinstance(type(item['answers']), str)) else {'question' : item['question'], 'answers' : ', '.join(item['answers'])} for item in questions_two]
     
@@ -484,13 +532,15 @@ async def get_recommendation():
     
     
         
-    psych_answers_txt = ',\n'.join(answers_data)
+    psych_answers_txt = ',\n'.join(answers_data).strip()
     
     # print(answers_data)
     
     # print(answers_data)
 
-    
+    # print("pers_answers_txt\n", pers_answers_txt)
+    # print("prof_answers_txt\n", prof_answers_txt)
+    # print("psych_answers_txt\n", psych_answers_txt)
     
     main_prompt = f"""
                     You are candidate coach. I answered 3 types of questions. Here are the questions and my answers (Translate to english if needed):
@@ -508,7 +558,7 @@ async def get_recommendation():
         completion = openai.Completion.create(
                         engine=MODEL2,
                         prompt=main_prompt,
-                        temperature = 0.1 ** 1000,
+                        temperature = 0,
                         max_tokens = 600
                     )
         
@@ -516,7 +566,7 @@ async def get_recommendation():
             abort("Tokens count passed",  403)
 
     text = (completion["choices"][0]["text"]).strip()
-    print(text)
+    # print(text)
     
     text = re.sub(r'\b(I am|Me am)\b', 'You are', text)
     text = re.sub(r'\b(i am|me am)\b', 'you are', text)
@@ -560,7 +610,7 @@ async def get_recommendation():
     skill_data = []
     weights = {}
     
-    print(evaluation)
+    # print(evaluation)
     
     for line in evaluation:
         key, value = line.split(':')
@@ -830,7 +880,6 @@ async def get_rec_jobs(profession, skills, weights):
 
             
             for job in jobs:
-                
                 job_t = job['sphere'] + " : " + job['title'].replace('AI', 'Artificial Intelligence')
 
                 
@@ -840,15 +889,24 @@ async def get_rec_jobs(profession, skills, weights):
                 
 
                 similarity= [(fuzz.partial_token_set_ratio(cleaned_job, re.sub(r'[Cc]ommunication', "Communication English, Russian", cleaned_skill))/
-                              100 * fuzz.token_sort_ratio(job['title'].replace('AI', 'Artificial Intelligence'), profession)/100 * weights.get(list(skills.keys())[i], 5))
+                              100 * fuzz.partial_token_set_ratio(job['title'].replace('AI', 'Artificial Intelligence'), profession)/100 * weights.get(list(skills.keys())[i], 5))
                               for i, cleaned_skill in enumerate(all_cleaned_skills)]
                   
                 if isinstance(similarity[-1], complex):
                     similarity.pop()
                     
-
+                # if job['id'] == '72cd41ce-4891-11ee-9918-7c10c98c62c3':
+                #     print([[(cleaned_job, re.sub(r'[Cc]ommunication', "Communication English, Russian", cleaned_skill)), (fuzz.partial_ratio(cleaned_job, re.sub(r'[Cc]ommunication', "Communication English, Russian", cleaned_skill))/
+                #               100 * fuzz.token_sort_ratio(job['title'].replace('AI', 'Artificial Intelligence'), profession)/100 ), weights.get(list(skills.keys())[i], 5)]
+                #               for i, cleaned_skill in enumerate(all_cleaned_skills)])
+                #     similarity= [(fuzz.partial_ratio(cleaned_job, re.sub(r'[Cc]ommunication', "Communication English, Russian", cleaned_skill))/
+                #               100 * fuzz.token_sort_ratio(job['title'].replace('AI', 'Artificial Intelligence'), profession)/100 * weights.get(list(skills.keys())[i], 5))
+                #               for i, cleaned_skill in enumerate(all_cleaned_skills)]
+                #     print(similarity)
+                    
                 matches[job['id']] = max(similarity)
                 
+            # print([item[0] for item in sorted(matches.items(), key=lambda x: x[1], reverse=True)])
             required_jobs = [item[0] for item in sorted(matches.items(), key=lambda x: x[1], reverse=True)]
             # print(required_jobs) 
                 
