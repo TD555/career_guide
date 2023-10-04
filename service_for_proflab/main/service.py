@@ -26,6 +26,7 @@ nltk.download('words')
 
 sys.path.insert(0, "service_for_proflab")
 from version import __version__, __description__
+from version import __version__, __description__
 
 
 app = Flask(__name__)
@@ -86,6 +87,7 @@ def after_request(response):
 
 @app.route("/", methods=["GET"])
 async def info():
+    return __description__
     return __description__
 
 
@@ -276,7 +278,6 @@ async def get_professions():
     # print(prof_answers_txt)
     
     main_prompt = f"""
-<<<<<<< HEAD
                     Analyze the user’s personal information, education, experience, background, answers to the test questions and based on this 
                     information suggest four new different professions that best correspond to this personality. 
                     The suggested professions should not repeat the professions from education and experience. 
@@ -287,17 +288,6 @@ async def get_professions():
                           2. professional questions - {prof_answers_txt},
                           3. psychological questions - {psych_answers_txt}.
 
-=======
-                    You are career coach, I am providing you information about career questions and answers. 
-                    
-                    The questions and answers: {answers_txt} (Translate to english if needed).
-                    
-                    You need determine the best match 4 new professions or field of professions for me. 
-                    Presented professions should be trending, modern, perspective, independent of each other and, most importantly, 
-                    none of the professions offered should be in that list of professions: {exclude_professions}. They should be based on my every answer.
-                    
-                    For each specialty, give me a short description and short rationale as to why it is appropriate. 
->>>>>>> d40601b26c9c3bbead729e46198e6bcfb2f7f654
                     (Only use "you" application style when addressing me, do not apply by name.)
     """
 
