@@ -13,7 +13,7 @@ import re
 import asyncio
 import spacy
 from flask_apscheduler import APScheduler
-import parsing.parse_quickstart as parse_course
+# import parsing.parse_quickstart as parse_course
 import parsing.parse_job as parse_job
 from nltk.corpus import stopwords
 import nltk
@@ -332,6 +332,7 @@ async def get_courses():
     }
     try:
         response = requests.get(url, params=params, headers=headers)
+        print(response, UDEMY_KEY)
         return [{'title' : item.get('title', ''), 'url' : 'https://www.udemy.com' + item.get('url', ''), 'price' : item.get('price', ''), 'source' : 'Udemy', 
                  'img_url' : item.get('image_480x270', ''), 'status' : 'Online'}
                 for item in response.json().get('results', [])]
@@ -433,7 +434,7 @@ async def update_courses_jobs():
     
     try:
         logger.info("Course and Job tables creating or/and updating...")
-        await parse_course.parse()
+        # await parse_course.parse()
         await parse_job.parse()
     except psycopg2.OperationalError as e: abort(500, "Error connecting to the database: " + str(e))
     except Exception as e: abort(500, str(e))
