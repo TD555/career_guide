@@ -333,11 +333,12 @@ async def get_courses():
     try:
         response = requests.get(url, params=params, headers=headers)
         if response.status_code == 200:
-            print(response.text, UDEMY_KEY, type(UDEMY_KEY))
             return [{'title' : item.get('title', ''), 'url' : 'https://www.udemy.com' + item.get('url', ''), 'price' : item.get('price', ''), 'source' : 'Udemy', 
                     'img_url' : item.get('image_480x270', ''), 'status' : 'Online'}
                     for item in response.json().get('results', [])]
-        else: return([])
+        else:
+            print(response.__dict__, type(UDEMY_KEY))
+            return([])
     except Exception as e: abort(response.status_code, str(e))
     
     # conn, cur = None, None
