@@ -323,7 +323,7 @@ async def get_courses():
     url = "https://www.udemy.com/api-2.0/courses/"
     headers = {
     'Accept': 'application/json, text/plain, */*',
-    'Authorization': f'Basic {UDEMY_KEY}'
+    'Authorization': 'Basic SXpuNExVN1Y0dE83VlphY3R0WG5WMkgxOXNIOWd3Z2hDY25xa2xtZjpKZTZkTGNUeWV5MGs0U2JBT1FtQmFGRXBqZVQ2UHJNQVVPb1pyOHZxdlVEWWM3aFdFV0RxY3pPdHJXRnF4b21uSWlyd2tSektHWEVuc3FPZjd1cUFjVEpkOVFRc1JTaEJKRDAxTGdVcFBNT0JvdVRxVmV4UWNUWVlvTzNuMWJwbA=='
     }
     params = {
         'page_size': 16,  # Number of results to retrieve per page
@@ -332,11 +332,12 @@ async def get_courses():
     }
     try:
         response = requests.get(url, params=params, headers=headers)
-        print(response, UDEMY_KEY)
-        return [{'title' : item.get('title', ''), 'url' : 'https://www.udemy.com' + item.get('url', ''), 'price' : item.get('price', ''), 'source' : 'Udemy', 
-                 'img_url' : item.get('image_480x270', ''), 'status' : 'Online'}
-                for item in response.json().get('results', [])]
-  
+        if response.status_code == 200:
+            print(response.text, UDEMY_KEY, type(UDEMY_KEY))
+            return [{'title' : item.get('title', ''), 'url' : 'https://www.udemy.com' + item.get('url', ''), 'price' : item.get('price', ''), 'source' : 'Udemy', 
+                    'img_url' : item.get('image_480x270', ''), 'status' : 'Online'}
+                    for item in response.json().get('results', [])]
+        else: return([])
     except Exception as e: abort(response.status_code, str(e))
     
     # conn, cur = None, None
