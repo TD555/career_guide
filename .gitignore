@@ -14,3 +14,4 @@ service_for_proflab/main/skills.json
 service_for_proflab/main/skills_json.json
 service_for_proflab/main/new_skills.json
 service_for_proflab/main/linkedin_skills.txt
+service_for_proflab/parsing/parse_quickstart.py
