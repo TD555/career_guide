@@ -323,7 +323,8 @@ async def get_courses():
     url = "https://www.udemy.com/api-2.0/courses/"
     headers = {
     'Accept': 'application/json, text/plain, */*',
-    'Authorization': 'Basic SXpuNExVN1Y0dE83VlphY3R0WG5WMkgxOXNIOWd3Z2hDY25xa2xtZjpKZTZkTGNUeWV5MGs0U2JBT1FtQmFGRXBqZVQ2UHJNQVVPb1pyOHZxdlVEWWM3aFdFV0RxY3pPdHJXRnF4b21uSWlyd2tSektHWEVuc3FPZjd1cUFjVEpkOVFRc1JTaEJKRDAxTGdVcFBNT0JvdVRxVmV4UWNUWVlvTzNuMWJwbA=='
+    'Authorization': 'Basic SXpuNExVN1Y0dE83VlphY3R0WG5WMkgxOXNIOWd3Z2hDY25xa2xtZjpKZTZkTGNUeWV5MGs0U2JBT1FtQmFGRXBqZVQ2UHJNQVVPb1pyOHZxdlVEWWM3aFdFV0RxY3pPdHJXRnF4b21uSWlyd2tSektHWEVuc3FPZjd1cUFjVEpkOVFRc1JTaEJKRDAxTGdVcFBNT0JvdVRxVmV4UWNUWVlvTzNuMWJwbA==',
+    'User-Agent' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
     params = {
         'page_size': 16,  # Number of results to retrieve per page
