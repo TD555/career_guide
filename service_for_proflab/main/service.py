@@ -318,6 +318,7 @@ async def get_professions():
     return {"data": profs, "status" : 200}
 
 
+@app.route("/get_courses", methods=["GET"])
 async def get_courses():
     
     url = "https://www.udemy.com/api-2.0/courses/"
@@ -334,9 +335,9 @@ async def get_courses():
     try:
         response = requests.get(url, params=params, headers=headers)
         if response.status_code == 200:
-            return [{'title' : item.get('title', ''), 'url' : 'https://www.udemy.com' + item.get('url', ''), 'price' : item.get('price', ''), 'source' : 'Udemy', 
+            return {"courses" : [{'title' : item.get('title', ''), 'url' : 'https://www.udemy.com' + item.get('url', ''), 'price' : item.get('price', ''), 'source' : 'Udemy', 
                     'img_url' : item.get('image_480x270', ''), 'status' : 'Online'}
-                    for item in response.json().get('results', [])]
+                    for item in response.json().get('results', [])]}
         else:
             print(response.__dict__, type(UDEMY_KEY))
             return([])
@@ -420,15 +421,17 @@ async def get_jobs():
         if conn:
             conn.close()
             
-    return [{k:v  for k, v in dict(item).items()}  for item in response]
+    return {"jobs" : [{k:v  for k, v in dict(item).items()}  for item in response]}
 
     
 @app.route("/get_home_page", methods=["GET"])
 async def get_home_page():
         
-        course_response, job_response  = await asyncio.gather(get_courses(), get_jobs())
+        tasks = [get_courses(), get_jobs()]
+        
+        course_response, job_response  = await asyncio.gather(*tasks)
     
-        return {"courses" : course_response, "jobs" : job_response}
+        return {**course_response, **job_response}
 
 
 
