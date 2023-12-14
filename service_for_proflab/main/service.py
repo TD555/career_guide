@@ -74,7 +74,7 @@ def handle_error(error):
         status_code = error.code
     else:
         status_code = 500
-    return {"message" : str(error), "status_code" : status_code}, status_code
+    return {"message" : str(error), "status" : status_code}, status_code
     
     
 @app.after_request
@@ -118,11 +118,7 @@ async def info():
 
 
 async def replace_none_with_empty(data):
-    for item in data:
-        for key in item:
-            if item[key] is None:
-                item[key] = ""
-    return data
+    return [{key: val if val is not None else "" for key, val in item.items()} for item in data]
 
 
 async def clean_questions(questions:dict):
@@ -133,10 +129,12 @@ async def clean_questions(questions:dict):
     data['languages'] = ', '.join([item['language'] + ' - ' + item['proficiency'] for item in updated_dict])
     updated_dict = await replace_none_with_empty(questions['licenses'])
     data['licenses'] = ', '.join([item['title'] for item in updated_dict])
+    updated_dict = await replace_none_with_empty(questions['trainings'])
+    data['trainings'] = ', '.join([item['description'] + ', Position - ' + item['title'] for item in updated_dict])
     updated_dict = await replace_none_with_empty(questions['educations'])
-    data['educations'] = ', '.join(['Field - ' + item['field'] + ' Degree - ' + item['degree'] for item in updated_dict])
+    data['educations'] = ', '.join(['Field - ' + item['field'] + ', Degree - ' + item['degree'] for item in updated_dict])
     updated_dict = await replace_none_with_empty(questions['experiences'])
-    data['experiences'] = ', '.join([item['description'] + ' Position - ' + item['position'] for item in updated_dict])
+    data['experiences'] = ', '.join([item['description'] + ', Position - ' + item['position'] for item in updated_dict])
     
     return data    
 
@@ -258,8 +256,9 @@ async def get_professions():
     answers_data = [questions[i].strip() + ' : ' + answers[i].strip() if answers[i] else questions[i].strip() + ' : ' for i in range(len(questions))]
     
     pers_answers_txt = ',\n'.join(answers_data[1:8]).strip()
-    prof_answers_txt = ',\n'.join(answers_data[8:13]).strip()
+    prof_answers_txt = ',\n'.join(answers_data[8:14]).strip()
     
+    # print(prof_answers_txt)
     # questions_two = [item if (isinstance(type(item['answers']), str)) else {'question' : item['question'], 'answers' : ', '.join(item['answers'])} for item in questions_two]
     
     questions = [item['question'] for item in questions_two]
@@ -297,9 +296,10 @@ async def get_professions():
                         temperature = 0,
                         max_tokens = 600
                     )
-    except openai.error.InvalidRequestError:
-            return {"message" : """Tokens count passed""", "status" : "error"}
 
+    except Exception as e:
+        return {"message" : str(e), "status" : 520}
+    
     # print(completion)
     proffesions = (completion["choices"][0]["text"]).strip()
     
@@ -319,8 +319,9 @@ async def get_professions():
     return {"data": profs, "status" : 200}
 
 
-@app.route("/get_courses", methods=["GET"])
-async def get_courses():
+@app.route('/get_courses/', defaults={'search' : None, 'size' : 16}, methods=['GET'])
+@app.route("/get_courses/<string:search>/<int:size>", methods=["GET"])
+async def get_courses(search=None, size=16):
     
     url = "https://www.udemy.com/api-2.0/courses/"
     headers = {
@@ -328,12 +329,16 @@ async def get_courses():
     'Authorization': 'Basic SXpuNExVN1Y0dE83VlphY3R0WG5WMkgxOXNIOWd3Z2hDY25xa2xtZjpKZTZkTGNUeWV5MGs0U2JBT1FtQmFGRXBqZVQ2UHJNQVVPb1pyOHZxdlVEWWM3aFdFV0RxY3pPdHJXRnF4b21uSWlyd2tSektHWEVuc3FPZjd1cUFjVEpkOVFRc1JTaEJKRDAxTGdVcFBNT0JvdVRxVmV4UWNUWVlvTzNuMWJwbA==',
     'User-Agent' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
+    
     params = {
-        'page_size': 16,  # Number of results to retrieve per page
+        'page_size': size,  # Number of results to retrieve per page
         'page': 1,  # Page number to retrieve
         'ordering': 'relevance'  # Order by relevance
     }
     
+    if search:
+        params['search'] = search
+        
     try:
         response = requests.get(url, params=params, headers=headers)
         if response.status_code == 200:
@@ -341,7 +346,7 @@ async def get_courses():
                     'img_url' : item.get('image_480x270', ''), 'status' : 'Online'}
                     for item in response.json().get('results', [])]}
         else:
-            print(response.__dict__, type(UDEMY_KEY))
+            # print(response.__dict__, type(UDEMY_KEY))
             return([])
     except Exception as e: abort(response.status_code, str(e))
     
@@ -489,7 +494,7 @@ async def get_recommendation():
     
     
     main_prompt = f"Give required qualifications for this career path - {profession}. Rate the importance of each on a scale of 1-10 (Return in json form)"
-    # print(main_prompt)
+
     completion = openai.Completion.create(
                         engine=MODEL2,
                         prompt=main_prompt,
@@ -518,7 +523,7 @@ async def get_recommendation():
 
     
     pers_answers_txt = ',\n'.join(answers_data[1:8]).strip()
-    prof_answers_txt = ',\n'.join(answers_data[8:13]).strip()
+    prof_answers_txt = ',\n'.join(answers_data[8:14]).strip()
     
     questions_two = [item if (isinstance(type(item['answers']), str)) else {'question' : item['question'], 'answers' : ', '.join(item['answers'])} for item in questions_two]
     
@@ -531,13 +536,6 @@ async def get_recommendation():
         
     psych_answers_txt = ',\n'.join(answers_data).strip()
     
-    # print(answers_data)
-    
-    # print(answers_data)
-
-    # print("pers_answers_txt\n", pers_answers_txt)
-    # print("prof_answers_txt\n", prof_answers_txt)
-    # print("psych_answers_txt\n", psych_answers_txt)
     
     main_prompt = f"""
                     You are candidate coach. I answered 3 types of questions. Here are the questions and my answers (Translate to english if needed):
@@ -627,14 +625,11 @@ async def get_recommendation():
     
     # return ({"evaluation" : score_data, "total_score" : round(score,1), "suggestion" : suggestion, "skills" : skill_data})
     
-
-    get_courses = await asyncio.gather(get_rec_courses(profession, skills, weights), get_rec_jobs(profession, skills, weights))
-
-    get_courses[0].update(get_courses[1])
+    tasks = get_rec_courses(profession, skills, weights), get_rec_jobs(profession, skills, weights)
     
+    get_courses = await asyncio.gather(*tasks)
     
-    return {"evaluation" : score_data, "total_score" : round(score,1), "suggestion" : suggestion, "skills" : skill_data, "recommendation" :get_courses[0], "status" : 200}
-
+    return {"evaluation" : score_data, "total_score" : round(score,1), "suggestion" : suggestion, "skills" : skill_data, "recommendation" : {**get_courses[0], **get_courses[1]}, "status" : 200}
 
 
 # import yappi
@@ -655,12 +650,18 @@ async def get_recommendation():
 #     return profiled
 
 
-async def call_courses_url():
+async def call_courses_url(search=None, size=None):
     try:    
-        response = requests.get(COURSES_URL)
-        response.raise_for_status()
-        
-        return response.json()
+        if not search and not size:
+            response = requests.get(COURSES_URL)
+            response.raise_for_status()
+            
+            return response.json()
+        else:
+            response = requests.get(COURSES_URL + f'/{search}/{size}')
+            response.raise_for_status()
+            
+            return response.json()
     
     except requests.HTTPError as e:
         return {"courses" : []}
@@ -703,133 +704,134 @@ async def get_courses_jobs():
     except: abort(500, "Invalid data of evaluation")
     
     print("Calling rec_courses...")
-    get_courses = await asyncio.gather(get_rec_courses(profession, skills, weights), get_rec_jobs(profession, skills, weights))
-
-    get_courses[0].update(get_courses[1])
-       
+    
+    tasks = [get_rec_courses(profession, skills, weights), get_rec_jobs(profession, skills, weights)]
+    get_courses = await asyncio.gather(*tasks)       
   
     
-    return {"recommendation" : get_courses[0], "evaluation" : evaluation,  "skills" : skills_data, "status" : 200}
+    return {"recommendation" : {**get_courses[0], **get_courses[1]}, "evaluation" : evaluation,  "skills" : skills_data, "status" : 200}
    
     
-course_cache = {}
+# course_cache = {}
 
 async def get_rec_courses(profession, skills, weights):
     
-    try:
+    return await call_courses_url(search=profession, size=5)
+
+#     try:
         
-        conn, cur = None, None
+#         conn, cur = None, None
         
-        # Check if the result is cached
+#         # Check if the result is cached
 
-        conn = psycopg2.connect(
-                host=hostname,
-                dbname=database,
-                user=username,
-                password=pwd,
-                port=port_id
-            )
+#         conn = psycopg2.connect(
+#                 host=hostname,
+#                 dbname=database,
+#                 user=username,
+#                 password=pwd,
+#                 port=port_id
+#             )
 
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+#         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-        get_script = """
-                        SELECT id, title, sphere, description
-                        FROM course
-                        WHERE active = TRUE;
-                        """
+#         get_script = """
+#                         SELECT id, title, sphere, description
+#                         FROM course
+#                         WHERE active = TRUE;
+#                         """
 
-        cur.execute(get_script)
+#         cur.execute(get_script)
 
-        response = cur.fetchall()
+#         response = cur.fetchall()
 
-        courses = [item for item in response]
+#         courses = [item for item in response]
 
-        cache_key = (profession, tuple(weights.items()), tuple(skills.items()), tuple(item['id'] for item in response))
+#         cache_key = (profession, tuple(weights.items()), tuple(skills.items()), tuple(item['id'] for item in response))
         
         
-        if cache_key in course_cache:
-            response = course_cache[cache_key]
+#         if cache_key in course_cache:
+#             response = course_cache[cache_key]
             
-        else:
+#         else:
 
-            nlp = spacy.load("en_core_web_md")
-            # Perform NLP operations on the profession once and reuse
-            profession_title = nlp(profession)
+#             nlp = spacy.load("en_core_web_md")
+#             # Perform NLP operations on the profession once and reuse
+#             profession_title = nlp(profession)
 
-            # Filter stopwords and tokenize skills once and reuse
-            all_tokens = [
-                [token.strip() for token in (profession + ' - ' + skill).split()]
-                for skill in skills
-            ]
+#             # Filter stopwords and tokenize skills once and reuse
+#             all_tokens = [
+#                 [token.strip() for token in (profession + ' - ' + skill).split()]
+#                 for skill in skills
+#             ]
 
-            all_cleaned_skills = [
-                ' '.join(token for token in tokens if token not in stwords)
-                for tokens in all_tokens
-            ]
+#             all_cleaned_skills = [
+#                 ' '.join(token for token in tokens if token not in stwords)
+#                 for tokens in all_tokens
+#             ]
 
 
-            matches = {}
+#             matches = {}
             
 
-            for course in courses:
-                # Perform NLP operations on the course title once and reuse
-                course_t = course['sphere'] + " : " + course['title'].replace('AI', 'Artificial Intelligence')
-                course_title = nlp(course_t)
+#             for course in courses:
+#                 # Perform NLP operations on the course title once and reuse
+#                 course_t = course['sphere'] + " : " + course['title'].replace('AI', 'Artificial Intelligence')
+#                 course_title = nlp(course_t)
 
-                cleaned_course = ' '.join(token for token in course_t.split() if token not in stwords)
+#                 cleaned_course = ' '.join(token for token in course_t.split() if token not in stwords)
 
-                title_similarity = course_title.similarity(profession_title)
+#                 title_similarity = course_title.similarity(profession_title)
 
-                # Use list comprehension to calculate similarity
-                similarity = [
-                    (fuzz.partial_token_set_ratio(cleaned_course, re.sub(r'[Cc]ommunication', "Communication English, Russian", cleaned_skill))
-                    / 100 * (10 - skills[list(skills.keys())[i]]) * title_similarity ** 0.5 * weights.get(list(skills.keys())[i], 5))
-                    for i, cleaned_skill in enumerate(all_cleaned_skills)
-                ]
+#                 # Use list comprehension to calculate similarity
+#                 similarity = [
+#                     (fuzz.partial_token_set_ratio(cleaned_course, re.sub(r'[Cc]ommunication', "Communication English, Russian", cleaned_skill))
+#                     / 100 * (10 - skills[list(skills.keys())[i]]) * title_similarity ** 0.5 * weights.get(list(skills.keys())[i], 5))
+#                     for i, cleaned_skill in enumerate(all_cleaned_skills)
+#                 ]
 
-                matches[course['id']] = max(similarity)
+#                 matches[course['id']] = max(similarity)
 
-            required_courses = [item[0] for item in sorted(matches.items(), key=lambda x: x[1], reverse=True)]
-            
-            
-            course_ids = str(tuple(required_courses[:5]))
-            # print(course_ids)
-            
-            get_script = f"""
-                            SELECT course_url, title, img_url, price, source, start_date, status
-                            FROM course
-                            WHERE id in {course_ids};
-                            """
+#             required_courses = [item[0] for item in sorted(matches.items(), key=lambda x: x[1], reverse=True)]
             
             
-            cur.execute(get_script)
-            response = cur.fetchall()
-            # Cache the result for future use
+#             course_ids = str(tuple(required_courses[:5]))
+#             # print(course_ids)
             
-            dict_size_bytes = sys.getsizeof(course_cache)
-            dict_size_mb = dict_size_bytes / (1024 * 1024)
+#             get_script = f"""
+#                             SELECT course_url, title, img_url, price, source, start_date, status
+#                             FROM course
+#                             WHERE id in {course_ids};
+#                             """
             
-            while dict_size_mb >=256:
-                first_key = next(iter(course_cache))
-                del course_cache[first_key]
-                dict_size_bytes = sys.getsizeof(course_cache)
-                dict_size_mb = dict_size_bytes / (1024 * 1024)
+            
+#             cur.execute(get_script)
+#             response = cur.fetchall()
+#             # Cache the result for future use
+            
+#             dict_size_bytes = sys.getsizeof(course_cache)
+#             dict_size_mb = dict_size_bytes / (1024 * 1024)
+            
+#             while dict_size_mb >=256:
+#                 first_key = next(iter(course_cache))
+#                 del course_cache[first_key]
+#                 dict_size_bytes = sys.getsizeof(course_cache)
+#                 dict_size_mb = dict_size_bytes / (1024 * 1024)
                 
-            course_cache[cache_key] = response
+#             course_cache[cache_key] = response
 
-    except psycopg2.OperationalError as e:
-        return jsonify({"error": "Error connecting to the database: " + str(e)}), 500
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
+#     except psycopg2.OperationalError as e:
+#         return jsonify({"error": "Error connecting to the database: " + str(e)}), 500
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 500
+#     finally:
+#         if cur:
+#             cur.close()
+#         if conn:
+#             conn.close()
             
-    # print(response, required_courses)
+#     # print(response, required_courses)
     
-    return {"courses" : [{k:v  for k, v in dict(item).items()}  for item in response]}
+#     return {"courses" : [{k:v  for k, v in dict(item).items()}  for item in response]}
 
 
 job_cache = {}
