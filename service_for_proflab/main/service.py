@@ -333,10 +333,11 @@ async def get_courses():
         'page': 1,  # Page number to retrieve
         'ordering': 'relevance'  # Order by relevance
     }
+    
     try:
         response = requests.get(url, params=params, headers=headers)
         if response.status_code == 200:
-            return {"courses" : [{'title' : item.get('title', ''), 'url' : 'https://www.udemy.com' + item.get('url', ''), 'price' : item.get('price', ''), 'source' : 'Udemy', 
+            return {"courses" : [{'title' : item.get('title', ''), 'course_url' : 'https://www.udemy.com' + item.get('url', ''), 'price' : item.get('price', ''), 'source' : 'Udemy', 
                     'img_url' : item.get('image_480x270', ''), 'status' : 'Online'}
                     for item in response.json().get('results', [])]}
         else:
