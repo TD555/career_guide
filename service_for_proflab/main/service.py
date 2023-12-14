@@ -38,6 +38,7 @@ API_DOCS = Config.API_DOCS
 
 openai.api_key = Config.OPENAI_KEY
 UDEMY_KEY = Config.UDEMY_KEY
+COURSES_URL = Config.COURSES_URL
 
 hostname = Config.DATABASE_HOST
 database = Config.DATABASE_NAME
@@ -427,7 +428,7 @@ async def get_jobs():
 @app.route("/get_home_page", methods=["GET"])
 async def get_home_page():
         
-        tasks = [get_courses(), get_jobs()]
+        tasks = [get_jobs(), call_courses_url()]
         
         course_response, job_response  = await asyncio.gather(*tasks)
     
@@ -652,6 +653,20 @@ async def get_recommendation():
 #         return result
 #     return profiled
 
+
+async def call_courses_url():
+    try:    
+        response = requests.get(COURSES_URL)
+        response.raise_for_status()
+        
+        return response.json()
+    
+    except requests.HTTPError as e:
+        return {"courses" : []}
+        abort(e.response.status_code, e.response.text)
+    except Exception as e:
+        return {"courses" : []}
+        abort(408, str(e))
 
 @app.route("/get_courses_jobs", methods=["POST"])
 async def get_courses_jobs():   

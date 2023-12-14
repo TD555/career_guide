@@ -16,6 +16,7 @@ class Config:
     
     # API key for Udemy
     UDEMY_KEY = os.environ.get('UDEMY_KEY')
+    COURSES_URL = os.environ.get('COURSES_URL')
     
     # Token validation
     API_DOCS = os.environ.get('API_DOCS')
