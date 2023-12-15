@@ -47,13 +47,6 @@ pwd = Config.DATABASE_PASSWORD
 port_id = Config.DATABASE_PORT
 
 
-# hostname = "localhost"
-# database = "flask_db"
-# username = "postgres"
-# pwd = "Tik.555"
-# port_id = 5432
-
-
 import logging
 
 logging.basicConfig(level=logging.INFO)  # You can adjust the logging level as needed
@@ -669,7 +662,7 @@ async def call_courses_url(search=None, size=None):
             
             return response.json()
         else:
-            response = requests.post(COURSES_URL, data={'search' : search, 'size': size})
+            response = requests.post(COURSES_URL, json={'search' : search, 'size': size})
             response.raise_for_status()
             
             return response.json()
