@@ -47,11 +47,11 @@ pwd = Config.DATABASE_PASSWORD
 port_id = Config.DATABASE_PORT
 
 
-# hostname = "localhost"
-# database = "flask_db"
-# username = "postgres"
-# pwd = "Tik.555"
-# port_id = 5432
+hostname = "localhost"
+database = "flask_db"
+username = "postgres"
+pwd = "Tik.555"
+port_id = 5432
 
 
 import logging
@@ -168,7 +168,7 @@ async def get_professions():
     try:
         data = request.json['data']
         # print(data)
-    except: abort(500, "Invalid data of answers")
+    except: abort(400, "Invalid data of answers")
     
 
     # data = request.files['data']
@@ -319,9 +319,20 @@ async def get_professions():
     return {"data": profs, "status" : 200}
 
 
-@app.route('/get_courses/', defaults={'search' : None, 'size' : 16}, methods=['GET'])
-@app.route("/get_courses/<string:search>/<int:size>", methods=["GET"])
-async def get_courses(search=None, size=16):
+@app.route('/get_courses', methods=['GET', 'POST'])
+async def get_courses():
+
+    if request.method == 'POST':
+        try:
+            data = request.json
+            search = data.get('search', '')
+            size = data.get('size', 16)
+                
+        except: abort(400, "Invalid data of courses")
+    
+    if request.method == 'GET':
+        search = ''
+        size = 16
     
     url = "https://www.udemy.com/api-2.0/courses/"
     headers = {
@@ -473,11 +484,11 @@ async def get_recommendation():
 
     try:
         profession = request.json["profession"]
-    except: abort(500, "Invalid data of profession")
+    except: abort(400, "Invalid data of profession")
     
     try:
         data = request.json['data']
-    except: abort(500, "Invalid data of answers")
+    except: abort(400, "Invalid data of answers")
     
     questions_one = data['userData']
     questions_two = data['questionAnswers']
@@ -658,7 +669,7 @@ async def call_courses_url(search=None, size=None):
             
             return response.json()
         else:
-            response = requests.get(COURSES_URL + f'/{search}/{size}')
+            response = requests.post(COURSES_URL, data={'search' : search, 'size': size})
             response.raise_for_status()
             
             return response.json()
@@ -687,21 +698,21 @@ async def get_courses_jobs():
     
     try:
         profession = request.json["profession"]
-    except: abort(500, "Invalid data of profession")
+    except: abort(400, "Invalid data of profession")
     
     try:
         skills_data = request.json['skills']
         
         skills = {item['title'] : item['value'] for item in skills_data}
         
-    except: abort(500, "Invalid data of skills")
+    except: abort(400, "Invalid data of skills")
     
     try:
         evaluation = request.json['evaluation']
         
         weights = {item['title'] : item['value'] for item in evaluation}
                   
-    except: abort(500, "Invalid data of evaluation")
+    except: abort(400, "Invalid data of evaluation")
     
     print("Calling rec_courses...")
     
