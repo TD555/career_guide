@@ -47,11 +47,11 @@ pwd = Config.DATABASE_PASSWORD
 port_id = Config.DATABASE_PORT
 
 
-hostname = "localhost"
-database = "flask_db"
-username = "postgres"
-pwd = "Tik.555"
-port_id = 5432
+# hostname = "localhost"
+# database = "flask_db"
+# username = "postgres"
+# pwd = "Tik.555"
+# port_id = 5432
 
 
 import logging
