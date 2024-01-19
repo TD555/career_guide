@@ -562,7 +562,7 @@ async def get_recommendation():
                             3. psychological questions - {psych_answers_txt}.
                         Based on my answers, please analyze and determine how well it fits the requirements for each of these skills: {', '.join(list(skills.keys()))}.
                         Rate it very strictly on a scale of 0 to 10. Break down each component of the rating and briefly explain why you assigned that particular value.
-                        Also, give me a suggestion (On the following format - {{"suggestion" : "Short suggestion", "evaluation" :  [{{"evaluation" : Short evaluation, "title" : skill's exact same name, "score" : skill's rating}}]}} for all skill in the following list ({', '.join(list(skills.keys()))})) about what skills i need to improve or develop for a better fit and therefore a higher score. (Do not give an overall score and overall text. Use only double quotes for values and keys)
+                        Also, give me a suggestion (On the following format - {{"suggestion" : "Short suggestion", "evaluation" :  [{{"evaluation" : Short evaluation, "title" : skill's exact same name, "value" : skill's rating}}]}} for all skill in the following list ({', '.join(list(skills.keys()))})) about what skills i need to improve or develop for a better fit and therefore a higher score. (Do not give an overall score and overall text. Use only double quotes for values and keys)
                         (Only use "you" application style when addressing me, do not apply by name.)
                         """
         
