@@ -30,3 +30,6 @@ class Config:
     # Cron Job time
     JOB_HOUR = os.environ.get('JOB_HOUR')
     JOB_MINUTE = os.environ.get('JOB_MINUTE')
+    
+    # Response timeout
+    TIMEOUT = os.environ.get('TIMEOUT')

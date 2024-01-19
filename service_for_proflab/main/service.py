@@ -11,7 +11,7 @@ from psycopg2.extras import RealDictCursor
 import requests
 import re
 import asyncio
-import spacy
+import time
 from flask_apscheduler import APScheduler
 # import parsing.parse_quickstart as parse_course
 import parsing.parse_job as parse_job
@@ -46,6 +46,7 @@ username = Config.DATABASE_USER
 pwd = Config.DATABASE_PASSWORD
 port_id = Config.DATABASE_PORT
 
+timeout = float(Config.TIMEOUT)
 
 import logging
 
@@ -279,35 +280,40 @@ async def get_professions():
                           2. professional questions - {prof_answers_txt},
                           3. psychological questions - {psych_answers_txt}.
 
-                    (Only use "you" application style when addressing me, do not apply by name. Provide solely a text in the format of a 4-length Python list of dict items, where each item needs to have the keys "about" (about profession) and "profession")
+                    (Only use "you" application style when addressing me, do not apply by name.  Return only a text with form of python list of dict items with length of 4, where each item needs to have the keys "about" (provided description of profession) and "profession")
     """
+    
+    start = time.time()
+    
+    while time.time() - start < timeout:
+        try:
+            completion = openai.Completion.create(
+                            engine=MODEL2,
+                            prompt=main_prompt,
+                            temperature = 0,
+                            max_tokens = 600
+                            )
 
-    try:
-        completion = openai.Completion.create(
-                        engine=MODEL2,
-                        prompt=main_prompt,
-                        temperature = 0,
-                        max_tokens = 600
-                    )
+            
+            proffesions = (completion["choices"][0]["text"]).strip()
+            
+            proffesions = re.sub(r'\b(I|Me)\b', 'You', proffesions)
+            proffesions = re.sub(r'\b(i|me)\b', 'you', proffesions)
+            
+            proffesions = re.sub(r'\bMy\b', 'Your', proffesions)
+            proffesions = re.sub(r'\bmy\b', 'your', proffesions)
+            
+            # profs_list = re.findall(r'[0-9]\. ([^\n]*)', proffesions.strip())
+            
+            profs = eval(re.search(r'\[[\w\W]*\]', proffesions).group())
+            
+            return {"data": profs, "status" : 200}
+        
+        except Exception as e:
+                text = str(e)
+                continue
 
-    except Exception as e:
-        return {"message" : str(e), "status" : 520}
-    
-    # print(completion)
-    proffesions = (completion["choices"][0]["text"]).strip()
-    
-    proffesions = re.sub(r'\b(I|Me)\b', 'You', proffesions)
-    proffesions = re.sub(r'\b(i|me)\b', 'you', proffesions)
-    
-    proffesions = re.sub(r'\bMy\b', 'Your', proffesions)
-    proffesions = re.sub(r'\bmy\b', 'your', proffesions)
-    
-    # profs_list = re.findall(r'[0-9]\. ([^\n]*)', proffesions.strip())
-    
-    profs = eval(re.search(r'\[[\w\W]*\]', proffesions).group())
-    
-    return {"data": profs, "status" : 200}
-
+    abort(500, text)
 
 @app.route('/get_courses', methods=['GET', 'POST'])
 async def get_courses():
@@ -495,117 +501,121 @@ async def get_recommendation():
     
     main_prompt = f"Give required qualifications for this career path - {profession}. Rate the importance of each on a scale of 1-10 (Return only a form of python list of dicts with Name and Importance keys. Use only double quotes for values and keys)"
 
-    try:
-
-        completion = openai.Completion.create(
-                        engine=MODEL2,
-                        prompt=main_prompt,
-                        temperature = 0,
-                        max_tokens = 500
-                    )
+    start = time.time()
+    
+    while time.time() - start < timeout:
+        try:
+            completion = openai.Completion.create(
+                            engine=MODEL2,
+                            prompt=main_prompt,
+                            temperature = 0,
+                            max_tokens = 500
+                        )
         
-    except openai.error.InvalidRequestError:
-            abort("Tokens count passed",  403)
-    
-    for choice in completion["choices"]:
-        print(choice["text"])
-    
-    skills = {item['Name']: item['Importance'] for item in sorted(eval(re.search(r'\[[\w\W]*\]', (completion["choices"][0]["text"]).strip()).group()), key=lambda item: int(item["Importance"]), reverse=True)}
-    
-    # print(skills)
-    # file = request.files["file"]
-    # parsed = parser.from_buffer(file.read())
-    # text = parsed["content"]
-    # text = re.sub('\n', ' ', text)
-    
-    # tokens = [token.strip() for token in text.split()]
-    
-    # cleaned_text = ''
-    # for token in tokens:
-    #     if token not in stwords:
-    #         cleaned_text += token + ' '
-    
-    # content = re.sub(" {2,}", " ", cleaned_text)
-    # content = content.strip()
-    # print(', '.join(list(skills.keys())))
+            for choice in completion["choices"]:
+                print(choice["text"])
+            
+            skills = {item['Name']: item['Importance'] for item in sorted(eval(re.search(r'\[[\w\W]*\]', (completion["choices"][0]["text"]).strip()).group()), key=lambda item: int(item["Importance"]), reverse=True)}
 
-    
-    pers_answers_txt = ',\n'.join(answers_data[1:8]).strip()
-    prof_answers_txt = ',\n'.join(answers_data[8:14]).strip()
-    
-    questions_two = [item if (isinstance(type(item['answers']), str)) else {'question' : item['question'], 'answers' : ', '.join(item['answers'])} for item in questions_two]
-    
-    questions = [item['question'] for item in questions_two]
-    answers = [item['answers'] for item in questions_two]
-    
-    answers_data = [questions[i].strip() + ' : ' + answers[i] if answers[i] else questions[i].strip() + ' : ' for i in range(len(questions))]
-    
-    
         
-    psych_answers_txt = ',\n'.join(answers_data).strip()
+        except Exception as e:
+            text = str(e)
+            continue
     
-    
-    main_prompt = f"""
-                     I answered 3 types of questions. Here are the questions and my answers (Translate to english if needed):
-                          1. personal questions - {pers_answers_txt},
-                          2. professional questions - {prof_answers_txt},
-                          3. psychological questions - {psych_answers_txt}.
-                    Based on my answers, please analyze and determine how well it fits the requirements for each of these skills: {', '.join(list(skills.keys()))}.
-                    Rate it very strictly on a scale of 0 to 10. Break down each component of the rating and briefly explain why you assigned that particular value.
-                    Also, give me a suggestion (On the following format - {{"suggestion" : "Short suggestion", "evaluation" :  [{{"evaluation" : Short evaluation, "title" : skill's exact same name, "score" : skill's rating}}]}} for all skill in the following list ({', '.join(list(skills.keys()))})) about what skills i need to improve or develop for a better fit and therefore a higher score. (Do not give an overall score and overall text. Use only double quotes for values and keys)
-                    (Only use "you" application style when addressing me, do not apply by name.)
-                    """
-    
-    try:
-
-        completion = openai.Completion.create(
-                        engine=MODEL2,
-                        prompt=main_prompt,
-                        temperature = 0,
-                        max_tokens = 1800
-                    )
+        # print(skills)
+        # file = request.files["file"]
+        # parsed = parser.from_buffer(file.read())
+        # text = parsed["content"]
+        # text = re.sub('\n', ' ', text)
         
-    except Exception as e:
-            abort(403, str(e))
+        # tokens = [token.strip() for token in text.split()]
+        
+        # cleaned_text = ''
+        # for token in tokens:
+        #     if token not in stwords:
+        #         cleaned_text += token + ' '
+        
+        # content = re.sub(" {2,}", " ", cleaned_text)
+        # content = content.strip()
+        # print(', '.join(list(skills.keys())))
 
-    text = (completion["choices"][0]["text"]).strip()
-    
-    text = re.sub(r'\b(I am|Me am)\b', 'You are', text)
-    text = re.sub(r'\b(i am|me am)\b', 'you are', text)
-    
-    text = re.sub(r'\b(I|Me)\b', 'You', text)
-    text = re.sub(r'\b(i|me)\b', 'you', text)
-    
-    text = re.sub(r'\bThe candidate has', 'You have', text)
-    text = re.sub(r'\bthe candidate has', 'you have', text)
+        
+        pers_answers_txt = ',\n'.join(answers_data[1:8]).strip()
+        prof_answers_txt = ',\n'.join(answers_data[8:14]).strip()
+        
+        questions_two = [item if (isinstance(type(item['answers']), str)) else {'question' : item['question'], 'answers' : ', '.join(item['answers'])} for item in questions_two]
+        
+        questions = [item['question'] for item in questions_two]
+        answers = [item['answers'] for item in questions_two]
+        
+        answers_data = [questions[i].strip() + ' : ' + answers[i] if answers[i] else questions[i].strip() + ' : ' for i in range(len(questions))]
+        
+        
+            
+        psych_answers_txt = ',\n'.join(answers_data).strip()
+        
+        
+        main_prompt = f"""
+                        I answered 3 types of questions. Here are the questions and my answers (Translate to english if needed):
+                            1. personal questions - {pers_answers_txt},
+                            2. professional questions - {prof_answers_txt},
+                            3. psychological questions - {psych_answers_txt}.
+                        Based on my answers, please analyze and determine how well it fits the requirements for each of these skills: {', '.join(list(skills.keys()))}.
+                        Rate it very strictly on a scale of 0 to 10. Break down each component of the rating and briefly explain why you assigned that particular value.
+                        Also, give me a suggestion (On the following format - {{"suggestion" : "Short suggestion", "evaluation" :  [{{"evaluation" : Short evaluation, "title" : skill's exact same name, "score" : skill's rating}}]}} for all skill in the following list ({', '.join(list(skills.keys()))})) about what skills i need to improve or develop for a better fit and therefore a higher score. (Do not give an overall score and overall text. Use only double quotes for values and keys)
+                        (Only use "you" application style when addressing me, do not apply by name.)
+                        """
+        
+        try:
 
-    text = re.sub(r'\bMy\b', 'Your', text)
-    text = re.sub(r'\bmy\b', 'your', text)
-    
-    print(text)
-    
-    # evaluation = re.match(r"{\"[Ee]valuation\" :([\w\W]*)\n\n", text).group(1).strip()
-    # suggestion = re.match(r"{\"[Ss]uggestion\" :([\w\W]*})", text).group(1).strip()
+            completion = openai.Completion.create(
+                            engine=MODEL2,
+                            prompt=main_prompt,
+                            temperature = 0,
+                            max_tokens = 1800
+                        )
+            
 
-    evaluation = eval(text)['evaluation']
-    suggestion = eval(text)['suggestion']
-    
-    scores_dict = {item['title'] : item['score'] for item in evaluation}
-    
-    total = sum(skills.values())
-    
-    score = 0
-    
-    for skill in skills:
-        score += (100/total) * (scores_dict.get(skill,5)/10) * skills[skill]
-    
-    # print(score)
-    
-    skill_data = [{'title' : skill.strip(), 'value' : value} for skill, value in skills.items()]
-    
-    
-    return {"evaluation" : evaluation, "total_score" : round(score, 1), "suggestion" : suggestion, "skills" : skill_data, "status" : 200}
+            text = (completion["choices"][0]["text"]).strip()
+            
+            text = re.sub(r'\b(I am|Me am)\b', 'You are', text)
+            text = re.sub(r'\b(i am|me am)\b', 'you are', text)
+            
+            text = re.sub(r'\b(I|Me)\b', 'You', text)
+            text = re.sub(r'\b(i|me)\b', 'you', text)
+            
+            text = re.sub(r'\bThe candidate has', 'You have', text)
+            text = re.sub(r'\bthe candidate has', 'you have', text)
 
+            text = re.sub(r'\bMy\b', 'Your', text)
+            text = re.sub(r'\bmy\b', 'your', text)
+            
+            print(text)
+            
+            # evaluation = re.match(r"{\"[Ee]valuation\" :([\w\W]*)\n\n", text).group(1).strip()
+            # suggestion = re.match(r"{\"[Ss]uggestion\" :([\w\W]*})", text).group(1).strip()
+
+            evaluation = eval(text)['evaluation']
+            suggestion = eval(text)['suggestion']
+            
+            scores_dict = {item['title'] : item['score'] for item in evaluation}
+            
+            total = sum(skills.values())
+            
+            score = 0
+            
+            for skill in skills:
+                score += (100/total) * (scores_dict.get(skill,5)/10) * skills[skill]
+            
+        except Exception as e:
+            text = str(e)
+            continue
+        
+        skill_data = [{'title' : skill.strip(), 'value' : value} for skill, value in skills.items()]
+
+        return {"evaluation" : evaluation, "total_score" : round(score, 1), "suggestion" : suggestion, "skills" : skill_data, "status" : 200}
+
+    abort(500, text)
 
 # import yappi
 # from functools import wraps
