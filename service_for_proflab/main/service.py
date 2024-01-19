@@ -598,7 +598,7 @@ async def get_recommendation():
             evaluation = eval(text)['evaluation']
             suggestion = eval(text)['suggestion']
             
-            scores_dict = {item['title'] : item['score'] for item in evaluation}
+            scores_dict = {item['title'] : item['value'] for item in evaluation}
             
             total = sum(skills.values())
             
