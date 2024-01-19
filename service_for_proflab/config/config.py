@@ -14,6 +14,9 @@ class Config:
     # API key for OpanAI
     OPENAI_KEY = os.environ.get('OPENAI_KEY')
     
+    # GPT Model
+    MODEL=os.environ.get('MODEL')
+    
     # API key for Udemy
     UDEMY_KEY = os.environ.get('UDEMY_KEY')
     COURSES_URL = os.environ.get('COURSES_URL')

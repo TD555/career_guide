@@ -32,7 +32,7 @@ app = Flask(__name__)
 
 
 MODEL1 = "gpt-3.5-turbo"
-MODEL2 = "text-davinci-003"
+MODEL2 = Config.MODEL
 
 API_DOCS = Config.API_DOCS
 
@@ -63,11 +63,11 @@ def handle_error(error):
     # Get the traceback
     error_traceback = traceback.format_exc()
     print(error_traceback)
-    if hasattr(error, 'code'):
+    if hasattr(error, "code"):
         status_code = error.code
     else:
         status_code = 500
-    return {"message" : str(error), "status" : status_code}, status_code
+    return {"message": str(error).strip(), "status_code": status_code}, status_code
     
     
 @app.after_request
@@ -279,7 +279,7 @@ async def get_professions():
                           2. professional questions - {prof_answers_txt},
                           3. psychological questions - {psych_answers_txt}.
 
-                    (Only use "you" application style when addressing me, do not apply by name.)
+                    (Only use "you" application style when addressing me, do not apply by name. Provide solely a text in the format of a 4-length Python list of dict items, where each item needs to have the keys "about" (about profession) and "profession")
     """
 
     try:
@@ -302,12 +302,9 @@ async def get_professions():
     proffesions = re.sub(r'\bMy\b', 'Your', proffesions)
     proffesions = re.sub(r'\bmy\b', 'your', proffesions)
     
-    profs_list = re.findall(r'[0-9]\. ([^\n]*)', proffesions.strip())
+    # profs_list = re.findall(r'[0-9]\. ([^\n]*)', proffesions.strip())
     
-    profs = []
-    for prof in profs_list:
-        groups = re.match(r'(.*):(.*)', prof.strip()).groups()
-        profs.append({'profession' : groups[0].strip(), 'about' : groups[1].strip()})
+    profs = eval(re.search(r'\[[\w\W]*\]', proffesions).group())
     
     return {"data": profs, "status" : 200}
 
@@ -330,7 +327,7 @@ async def get_courses():
     url = "https://www.udemy.com/api-2.0/courses/"
     headers = {
     'Accept': 'application/json, text/plain, */*',
-    'Authorization': 'Basic SXpuNExVN1Y0dE83VlphY3R0WG5WMkgxOXNIOWd3Z2hDY25xa2xtZjpKZTZkTGNUeWV5MGs0U2JBT1FtQmFGRXBqZVQ2UHJNQVVPb1pyOHZxdlVEWWM3aFdFV0RxY3pPdHJXRnF4b21uSWlyd2tSektHWEVuc3FPZjd1cUFjVEpkOVFRc1JTaEJKRDAxTGdVcFBNT0JvdVRxVmV4UWNUWVlvTzNuMWJwbA==',
+    'Authorization': f'Basic {UDEMY_KEY}',
     'User-Agent' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
     
@@ -492,23 +489,30 @@ async def get_recommendation():
     questions = list(questions_one.keys())
     answers = list(questions_one.values())
      
-    logger.info(questions_one)
+    # logger.info(questions_one)
      
     answers_data = [questions[i].strip() + ' : ' + answers[i].strip() if answers[i] else questions[i].strip() + ' : ' for i in range(len(questions))]
     
-    
-    main_prompt = f"Give required qualifications for this career path - {profession}. Rate the importance of each on a scale of 1-10 (Return in json form)"
+    main_prompt = f"Give required qualifications for this career path - {profession}. Rate the importance of each on a scale of 1-10 (Return only a form of python list of dicts with Name and Importance keys. Use only double quotes for values and keys)"
 
-    completion = openai.Completion.create(
+    try:
+
+        completion = openai.Completion.create(
                         engine=MODEL2,
                         prompt=main_prompt,
                         temperature = 0,
-                        max_tokens = 300
+                        max_tokens = 500
                     )
+        
+    except openai.error.InvalidRequestError:
+            abort("Tokens count passed",  403)
     
-
-    skills = {k: v for k, v in sorted(eval((completion["choices"][0]["text"]).strip()).items(), key=lambda item: int(item[1]), reverse=True)}
+    for choice in completion["choices"]:
+        print(choice["text"])
     
+    skills = {item['Name']: item['Importance'] for item in sorted(eval(re.search(r'\[[\w\W]*\]', (completion["choices"][0]["text"]).strip()).group()), key=lambda item: int(item["Importance"]), reverse=True)}
+    
+    # print(skills)
     # file = request.files["file"]
     # parsed = parser.from_buffer(file.read())
     # text = parsed["content"]
@@ -542,13 +546,13 @@ async def get_recommendation():
     
     
     main_prompt = f"""
-                    You are candidate coach. I answered 3 types of questions. Here are the questions and my answers (Translate to english if needed):
+                     I answered 3 types of questions. Here are the questions and my answers (Translate to english if needed):
                           1. personal questions - {pers_answers_txt},
                           2. professional questions - {prof_answers_txt},
                           3. psychological questions - {psych_answers_txt}.
-                    Based on my answers, please analyze and determine how well it fits the requirements for each of these skills: {', '.join(list(skills.keys()))} (On the following format - "Each skill in the following list ({', '.join(list(skills.keys()))}) : some text").
+                    Based on my answers, please analyze and determine how well it fits the requirements for each of these skills: {', '.join(list(skills.keys()))}.
                     Rate it very strictly on a scale of 0 to 10. Break down each component of the rating and briefly explain why you assigned that particular value.
-                    Also, give me a suggestion (in the following format - "Suggestion: Some Text") about what skills i need to improve or develop for a better fit and therefore a higher score. (Do not give an overall score.)
+                    Also, give me a suggestion (On the following format - {{"suggestion" : "Short suggestion", "evaluation" :  [{{"evaluation" : Short evaluation, "title" : skill's exact same name, "score" : skill's rating}}]}} for all skill in the following list ({', '.join(list(skills.keys()))})) about what skills i need to improve or develop for a better fit and therefore a higher score. (Do not give an overall score and overall text. Use only double quotes for values and keys)
                     (Only use "you" application style when addressing me, do not apply by name.)
                     """
     
@@ -558,14 +562,13 @@ async def get_recommendation():
                         engine=MODEL2,
                         prompt=main_prompt,
                         temperature = 0,
-                        max_tokens = 600
+                        max_tokens = 1800
                     )
         
-    except openai.error.InvalidRequestError:
-            abort("Tokens count passed",  403)
+    except Exception as e:
+            abort(403, str(e))
 
     text = (completion["choices"][0]["text"]).strip()
-    # print(text)
     
     text = re.sub(r'\b(I am|Me am)\b', 'You are', text)
     text = re.sub(r'\b(i am|me am)\b', 'you are', text)
@@ -573,67 +576,35 @@ async def get_recommendation():
     text = re.sub(r'\b(I|Me)\b', 'You', text)
     text = re.sub(r'\b(i|me)\b', 'you', text)
     
+    text = re.sub(r'\bThe candidate has', 'You have', text)
+    text = re.sub(r'\bthe candidate has', 'you have', text)
 
     text = re.sub(r'\bMy\b', 'Your', text)
     text = re.sub(r'\bmy\b', 'your', text)
     
-    # print(text)
+    print(text)
     
-    score_patern = r'^(.*?):(\s*\d+)'
+    # evaluation = re.match(r"{\"[Ee]valuation\" :([\w\W]*)\n\n", text).group(1).strip()
+    # suggestion = re.match(r"{\"[Ss]uggestion\" :([\w\W]*})", text).group(1).strip()
+
+    evaluation = eval(text)['evaluation']
+    suggestion = eval(text)['suggestion']
     
-    matches = re.findall(score_patern, text, re.MULTILINE)
-
-    scores_dict =  {match[0]: int(match[1].strip()) if match[0] in skills.keys() else 5 for match in matches}
-
+    scores_dict = {item['title'] : item['score'] for item in evaluation}
     
     total = sum(skills.values())
     
     score = 0
     
     for skill in skills:
-        score += (100/total) * (scores_dict.get(skill, 5)/10) * skills[skill]
+        score += (100/total) * (scores_dict.get(skill,5)/10) * skills[skill]
     
-    suggestion_pattern = r':\s*([^:]+)'
+    # print(score)
     
-    match = re.findall(suggestion_pattern, text, re.MULTILINE)[-1]
+    skill_data = [{'title' : skill.strip(), 'value' : value} for skill, value in skills.items()]
     
-    suggestion = match.strip()
     
-
-        
-    evaluation_pattern = r'^.*?:.*'
-    
-    evaluation = re.findall(evaluation_pattern, text, re.MULTILINE)[:-1]
-
-    score_data = []
-    skill_data = []
-    weights = {}
-    
-    # print(evaluation)
-    
-    for line in evaluation:
-        key, value = line.split(':')
-        if key in skills.keys():
-            groups = re.match(r'([0-9]+)/*[0-9]*\s*-(.*)', value.strip())
-            if groups:
-                score_data.append({'title' : key, 'value' :  int(groups.group(1).strip()), 'evaluation' : groups.group(2).strip()})
-                    
-                weights[key] = int(groups.group(1).strip())
-                
-            else: 
-                score_data.append({'title' : key, 'value' :  5, 'evaluation' : ""})
-                weights[key] = 5
-                
-    for skill, value in skills.items():
-        skill_data.append({'title' : skill.strip(), 'value' : value})
-    
-    # return ({"evaluation" : score_data, "total_score" : round(score,1), "suggestion" : suggestion, "skills" : skill_data})
-    
-    tasks = get_rec_courses(profession, skills, weights), get_rec_jobs(profession, skills, weights)
-    
-    get_courses = await asyncio.gather(*tasks)
-    
-    return {"evaluation" : score_data, "total_score" : round(score,1), "suggestion" : suggestion, "skills" : skill_data, "recommendation" : {**get_courses[0], **get_courses[1]}, "status" : 200}
+    return {"evaluation" : evaluation, "total_score" : round(score, 1), "suggestion" : suggestion, "skills" : skill_data, "status" : 200}
 
 
 # import yappi
@@ -891,7 +862,7 @@ async def get_rec_jobs(profession, skills, weights):
             # nlp = spacy.load("en_core_web_md")
 
             jobs = [item for item in response]
-
+        
             matches = {}
             # courses.append({"title" : "Tableau for beginners", "sphere" : "IT", "description" : ""})
 
@@ -911,15 +882,6 @@ async def get_rec_jobs(profession, skills, weights):
                   
                 if isinstance(similarity[-1], complex):
                     similarity.pop()
-                    
-                # if job['id'] == '72cd41ce-4891-11ee-9918-7c10c98c62c3':
-                #     print([[(cleaned_job, re.sub(r'[Cc]ommunication', "Communication English, Russian", cleaned_skill)), (fuzz.partial_ratio(cleaned_job, re.sub(r'[Cc]ommunication', "Communication English, Russian", cleaned_skill))/
-                #               100 * fuzz.token_sort_ratio(job['title'].replace('AI', 'Artificial Intelligence'), profession)/100 ), weights.get(list(skills.keys())[i], 5)]
-                #               for i, cleaned_skill in enumerate(all_cleaned_skills)])
-                #     similarity= [(fuzz.partial_ratio(cleaned_job, re.sub(r'[Cc]ommunication', "Communication English, Russian", cleaned_skill))/
-                #               100 * fuzz.token_sort_ratio(job['title'].replace('AI', 'Artificial Intelligence'), profession)/100 * weights.get(list(skills.keys())[i], 5))
-                #               for i, cleaned_skill in enumerate(all_cleaned_skills)]
-                #     print(similarity)
                     
                 matches[job['id']] = max(similarity)
                 
