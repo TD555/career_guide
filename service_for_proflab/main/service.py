@@ -272,7 +272,7 @@ async def get_professions():
     main_prompt = f"""
                     Analyze the user’s personal information, education, experience, background, answers to the test questions and based on this 
                     information suggest four new different professions that best correspond to this personality. 
-                    The suggested professions should not repeat the professions from education and experience. 
+                    The suggested professions should not repeat the professions from education's field and experience's position. 
                     Provide description of each suggested profession and explanation for choosing each profession.
 
                     Here are the questions and my answers (Translate to english if needed):
