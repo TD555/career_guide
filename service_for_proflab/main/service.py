@@ -280,7 +280,7 @@ async def get_professions():
                           2. professional questions - {prof_answers_txt},
                           3. psychological questions - {psych_answers_txt}.
 
-                    (Only use "you" application style when addressing me, do not apply by name.  Return only a text with form of python list of dict items with length of 4, where each item needs to have the keys "about" (provided description of profession) and "profession")
+                    (Only use "you" application style when addressing me, do not apply by name. Provide solely a text in the format of a 4-length Python list of dict items, where each item needs to have the keys "about" which value must be description of the profession and "profession")
     """
     
     start = time.time()
