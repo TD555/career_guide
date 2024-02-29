@@ -511,12 +511,11 @@ async def get_recommendation():
                             temperature = 0,
                             max_tokens = 500
                         )
-        
-            for choice in completion["choices"]:
-                print(choice["text"])
             
             skills = {item['Name']: item['Importance'] for item in sorted(eval(re.search(r'\[[\w\W]*\]', (completion["choices"][0]["text"]).strip()).group()), key=lambda item: int(item["Importance"]), reverse=True)}
 
+            if not skills:
+                continue
         
         except Exception as e:
             text = str(e)
@@ -562,7 +561,7 @@ async def get_recommendation():
                             3. psychological questions - {psych_answers_txt}.
                         Based on my answers, please analyze and determine how well it fits the requirements for each of these skills: {', '.join(list(skills.keys()))}.
                         Rate it very strictly on a scale of 0 to 10. Break down each component of the rating and briefly explain why you assigned that particular value.
-                        Also, give me a suggestion (On the following format - {{"suggestion" : "Short suggestion", "evaluation" :  [{{"evaluation" : Short evaluation, "title" : skill's exact same name, "value" : skill's rating}}]}} for all skill in the following list ({', '.join(list(skills.keys()))})) about what skills i need to improve or develop for a better fit and therefore a higher score. (Do not give an overall score and overall text. Use only double quotes for values and keys)
+                        Also, give me a suggestion (On the following format - {{"suggestion" : "One overall short suggestion", "evaluation" :  [{{"evaluation" : Short evaluation, "title" : skill's exact same name, "value" : skill's rating}}]}} for all skill in the following list ({', '.join(list(skills.keys()))})) about what skills i need to improve or develop for a better fit and therefore a higher score. (Do not give an overall score and overall text. Use only double quotes for values and keys)
                         (Only use "you" application style when addressing me, do not apply by name.)
                         """
         
@@ -572,7 +571,7 @@ async def get_recommendation():
                             engine=MODEL2,
                             prompt=main_prompt,
                             temperature = 0,
-                            max_tokens = 1800
+                            max_tokens = 2100
                         )
             
 
@@ -589,11 +588,6 @@ async def get_recommendation():
 
             text = re.sub(r'\bMy\b', 'Your', text)
             text = re.sub(r'\bmy\b', 'your', text)
-            
-            print(text)
-            
-            # evaluation = re.match(r"{\"[Ee]valuation\" :([\w\W]*)\n\n", text).group(1).strip()
-            # suggestion = re.match(r"{\"[Ss]uggestion\" :([\w\W]*})", text).group(1).strip()
 
             evaluation = eval(text)['evaluation']
             suggestion = eval(text)['suggestion']
@@ -609,11 +603,13 @@ async def get_recommendation():
             
         except Exception as e:
             text = str(e)
+            print(text)
             continue
         
         skill_data = [{'title' : skill.strip(), 'value' : value} for skill, value in skills.items()]
-
-        return {"evaluation" : evaluation, "total_score" : round(score, 1), "suggestion" : suggestion, "skills" : skill_data, "status" : 200}
+        
+        if len(skill_data) == len(evaluation):
+            return {"evaluation" : evaluation, "total_score" : round(score, 1), "suggestion" : suggestion, "skills" : skill_data, "status" : 200}
 
     abort(500, text)
 
