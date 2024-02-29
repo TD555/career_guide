@@ -514,6 +514,8 @@ async def get_recommendation():
             
             skills = {item['Name']: item['Importance'] for item in sorted(eval(re.search(r'\[[\w\W]*\]', (completion["choices"][0]["text"]).strip()).group()), key=lambda item: int(item["Importance"]), reverse=True)}
 
+            if not skills:
+                continue
         
         except Exception as e:
             text = str(e)
@@ -586,11 +588,6 @@ async def get_recommendation():
 
             text = re.sub(r'\bMy\b', 'Your', text)
             text = re.sub(r'\bmy\b', 'your', text)
-            
-            # print(text)
-            
-            # evaluation = re.match(r"{\"[Ee]valuation\" :([\w\W]*)\n\n", text).group(1).strip()
-            # suggestion = re.match(r"{\"[Ss]uggestion\" :([\w\W]*})", text).group(1).strip()
 
             evaluation = eval(text)['evaluation']
             suggestion = eval(text)['suggestion']
@@ -610,8 +607,9 @@ async def get_recommendation():
             continue
         
         skill_data = [{'title' : skill.strip(), 'value' : value} for skill, value in skills.items()]
-
-        return {"evaluation" : evaluation, "total_score" : round(score, 1), "suggestion" : suggestion, "skills" : skill_data, "status" : 200}
+        
+        if len(skill_data) == len(evaluation):
+            return {"evaluation" : evaluation, "total_score" : round(score, 1), "suggestion" : suggestion, "skills" : skill_data, "status" : 200}
 
     abort(500, text)
 
