@@ -10,6 +10,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import requests
 import re
+import json
 import asyncio
 import time
 from flask_apscheduler import APScheduler
@@ -512,7 +513,8 @@ async def get_recommendation():
                             max_tokens = 500
                         )
             
-            skills = {item['Name']: item['Importance'] for item in sorted(eval(re.search(r'\[[\w\W]*\]', (completion["choices"][0]["text"]).strip()).group()), key=lambda item: int(item["Importance"]), reverse=True)}
+            output = completion["choices"][0]["text"]
+            skills = {item['Name']: item['Importance'] for item in sorted(eval(output), key=lambda item: int(item["Importance"]), reverse=True)}
 
             if not skills:
                 continue
@@ -561,7 +563,7 @@ async def get_recommendation():
                             3. psychological questions - {psych_answers_txt}.
                         Based on my answers, please analyze and determine how well it fits the requirements for each of these skills: {', '.join(list(skills.keys()))}.
                         Rate it very strictly on a scale of 0 to 10. Break down each component of the rating and briefly explain why you assigned that particular value.
-                        Also, give me a suggestion (On the following format - {{"suggestion" : "One overall short suggestion", "evaluation" :  [{{"evaluation" : Short evaluation, "title" : skill's exact same name, "value" : skill's rating}}]}} for all skill in the following list ({', '.join(list(skills.keys()))})) about what skills i need to improve or develop for a better fit and therefore a higher score. (Do not give an overall score and overall text. Use only double quotes for values and keys)
+                        Also, give me a suggestion (On the following format - {{"suggestion" : "One overall short suggestion", "evaluation" :  [{{"evaluation" : Short evaluation, "title" : skill's exact same name, "value" : skill's rating}}]}} for all skills in the following list ({', '.join(list(skills.keys()))})) about what skills i need to improve or develop for a better fit and therefore a higher score. (Do not give an overall score and overall text. Use only double quotes for values and keys)
                         (Only use "you" application style when addressing me, do not apply by name.)
                         """
         
@@ -571,7 +573,7 @@ async def get_recommendation():
                             engine=MODEL2,
                             prompt=main_prompt,
                             temperature = 0,
-                            max_tokens = 2100
+                            max_tokens = 2200
                         )
             
 
@@ -589,8 +591,8 @@ async def get_recommendation():
             text = re.sub(r'\bMy\b', 'Your', text)
             text = re.sub(r'\bmy\b', 'your', text)
 
-            evaluation = eval(text)['evaluation']
-            suggestion = eval(text)['suggestion']
+            evaluation = json.loads(text).get('evaluation', '')
+            suggestion = json.loads(text).get('suggestion', [])
             
             scores_dict = {item['title'] : item['value'] for item in evaluation}
             
@@ -601,15 +603,21 @@ async def get_recommendation():
             for skill in skills:
                 score += (100/total) * (scores_dict.get(skill,5)/10) * skills[skill]
             
+        
         except Exception as e:
             text = str(e)
             print(text)
             continue
         
-        skill_data = [{'title' : skill.strip(), 'value' : value} for skill, value in skills.items()]
-        
-        if len(skill_data) == len(evaluation):
-            return {"evaluation" : evaluation, "total_score" : round(score, 1), "suggestion" : suggestion, "skills" : skill_data, "status" : 200}
+        skills_data = [{'title' : skill.strip(), 'value' : value} for skill, value in skills.items()]
+        eval_titles = [item['title'] for item in evaluation]
+        for skill in skills_data:
+            if skill['title'] not in eval_titles:
+                evaluation.append({"evaluation": "",
+                                    "title": skill['title'],
+                                    "value" : 5})
+                
+        return {"evaluation" : evaluation, "total_score" : round(score, 1), "suggestion" : suggestion, "skills" : skills_data, "status" : 200}
 
     abort(500, text)
 
@@ -671,31 +679,36 @@ async def get_courses_jobs():
     except: abort(400, "Invalid data of profession")
     
     try:
-        skills_data = request.json['skills']
+        skills_data = dict(request.json).get('skills', [])
         
-        skills = {item['title'] : item['value'] for item in skills_data}
-        
+        skills = {item.get('title', '') : item.get('value', '') for item in skills_data}
+
     except: abort(400, "Invalid data of skills")
     
     try:
-        evaluation = request.json['evaluation']
+        evaluation = dict(request.json).get('evaluation', [])
         
-        weights = {item['title'] : item['value'] for item in evaluation}
+        weights = {item.get('title', '') : item.get('value', '') for item in evaluation}
                   
     except: abort(400, "Invalid data of evaluation")
     
     print("Calling rec_courses...")
     
-    tasks = [get_rec_courses(profession, skills, weights), get_rec_jobs(profession, skills, weights)]
-    get_courses = await asyncio.gather(*tasks)       
-  
+    if skills:
+        tasks = [get_rec_courses(profession), get_rec_jobs(profession, skills, weights)]
+        get_courses = await asyncio.gather(*tasks)       
     
-    return {"recommendation" : {**get_courses[0], **get_courses[1]}, "evaluation" : evaluation,  "skills" : skills_data, "status" : 200}
+        
+        return {"recommendation" : {**get_courses[0], **get_courses[1]}, "evaluation" : evaluation,  "skills" : skills_data, "status" : 200}
+
+    else: 
+        get_courses = await get_rec_courses(profession)
+        return {"recommendation" : get_courses, "evaluation" : evaluation,  "skills" : skills_data, "status" : 200}
    
     
 # course_cache = {}
 
-async def get_rec_courses(profession, skills, weights):
+async def get_rec_courses(profession):
     
     return await call_courses_url(search=profession, size=5)
 
